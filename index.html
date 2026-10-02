@@ -3,9 +3,1089 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Optionext</title>
-    <script src="guard-desktop.js"></script>
+    <title>Optionext · 药铺子</title>
+    <script>
+        /* 主题防闪烁：早于一切渲染确定“明 / 暗”另一半 */
+        (function () {
+            try {
+                var t = localStorage.getItem('optionext-theme') ||
+                    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.dataset.theme = t;
+            } catch (e) {}
+        })();
+    </script>
+    <script src="components/device-guard.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================================
+           OPTIONEXT · ASCII 矩阵界面系统 03
+           双主题（明 / 暗）· 整幅字符矩阵 · 代码生成图标 · 横向冲击波
+           ============================================================ */
+        :root {
+            --paper: #f4f3ef;
+            --paper-deep: #e7e5dd;
+            --paper-rgb: 244, 243, 239;
+            --ink: #141310;
+            --ink-rgb: 20, 19, 16;
+            --ink-70: rgba(20, 19, 16, .72);
+            --ink-45: rgba(20, 19, 16, .42);
+            --ink-25: rgba(20, 19, 16, .22);
+            --ink-12: rgba(20, 19, 16, .12);
+            --ink-05: rgba(20, 19, 16, .05);
+            --signal: #df3b2a;
+            --signal-rgb: 223, 59, 42;
+            --frame: 28px;
+            --font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+            --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+            --ease-out: cubic-bezier(.22, 1, .36, 1);
+        }
+
+        :root[data-theme="dark"] {
+            --paper: #0f0e0c;
+            --paper-deep: #070606;
+            --paper-rgb: 15, 14, 12;
+            --ink: #e9e7e1;
+            --ink-rgb: 233, 231, 225;
+            --ink-70: rgba(233, 231, 225, .72);
+            --ink-45: rgba(233, 231, 225, .45);
+            --ink-25: rgba(233, 231, 225, .22);
+            --ink-12: rgba(233, 231, 225, .12);
+            --ink-05: rgba(233, 231, 225, .06);
+            --signal: #ef4d3a;
+            --signal-rgb: 239, 77, 58;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { -webkit-text-size-adjust: 100%; }
+
+        body {
+            background: var(--paper);
+            color: var(--ink);
+            font-family: var(--font-sans);
+            font-size: 16px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        ::selection { background: var(--ink); color: var(--paper); }
+        a { color: inherit; text-decoration: none; }
+
+        .mono {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--ink-70);
+        }
+
+        /* 圆形扩散期间禁用一切属性过渡，避免与 View Transition 抢动画 */
+        .sh-vt *, .sh-vt *::before, .sh-vt *::after {
+            transition: none !important;
+        }
+
+        /* ============================================================
+           HERO · 整屏字符矩阵
+           ============================================================ */
+        .hero {
+            position: relative;
+            height: 100vh;
+            min-height: 620px;
+            overflow: hidden;
+            background:
+                radial-gradient(1200px 720px at 68% 42%, rgba(var(--ink-rgb), .05), transparent 62%),
+                var(--paper);
+        }
+
+        #matrix {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 四角定位括线 */
+        .corner { position: absolute; width: 18px; height: 18px; z-index: 4; pointer-events: none; }
+        .corner::before, .corner::after {
+            content: ""; position: absolute; background: var(--ink);
+        }
+        .corner::before { width: 18px; height: 2px; }
+        .corner::after  { width: 2px; height: 18px; }
+        .corner.tl { top: 20px; left: 20px; }
+        .corner.tr { top: 20px; right: 20px; transform: scaleX(-1); }
+        .corner.bl { bottom: 20px; left: 20px; transform: scaleY(-1); }
+        .corner.br { bottom: 20px; right: 20px; transform: scale(-1, -1); }
+
+        /* HUD */
+        .hud { position: absolute; z-index: 4; }
+        .hud-tr { top: 86px; right: clamp(28px, 4vw, 56px); display: flex; align-items: center; gap: 9px; }
+        .hud-br {
+            bottom: 34px; right: clamp(28px, 4vw, 56px);
+            text-align: right; line-height: 2;
+            color: var(--ink-45);
+        }
+        .hud-bl {
+            bottom: 34px; left: clamp(28px, 4vw, 56px);
+            display: flex; align-items: center; gap: 10px;
+            color: var(--ink-45);
+        }
+
+        .live-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--signal);
+            animation: blink 1.6s steps(1) infinite;
+        }
+
+        /* ---------------- 左侧文案 ---------------- */
+        .hero-copy {
+            position: absolute;
+            z-index: 3;
+            left: clamp(28px, 5vw, 76px);
+            top: 50%;
+            transform: translateY(-50%);
+            max-width: 440px;
+        }
+
+        .eyebrow {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 26px;
+            opacity: 0;
+            animation: rise .8s var(--ease-out) 1.5s forwards;
+        }
+        .eyebrow .tick { width: 28px; height: 1px; background: var(--ink-45); }
+
+        h1 {
+            font-size: clamp(40px, 4vw, 56px);
+            font-weight: 700;
+            line-height: 1.12;
+            letter-spacing: -.01em;
+            margin-bottom: 24px;
+        }
+        h1 .line { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
+        h1 .line > span {
+            display: block;
+            opacity: 0;
+            transform: translateY(110%);
+            animation: lineUp .9s var(--ease-out) forwards;
+        }
+        h1 .line:nth-child(1) > span { animation-delay: 1.62s; }
+        h1 .line:nth-child(2) > span { animation-delay: 1.74s; }
+        h1 .dot {
+            display: inline;
+            color: var(--signal);
+            font-family: var(--font-mono);
+            font-weight: 400;
+        }
+
+        .lead {
+            font-size: 15.5px;
+            line-height: 1.85;
+            color: var(--ink-70);
+            margin-bottom: 42px;
+            opacity: 0;
+            animation: rise .8s var(--ease-out) 1.88s forwards;
+        }
+        .lead b { font-weight: 500; color: var(--ink); }
+
+        .actions {
+            display: flex; align-items: center; gap: 30px;
+            opacity: 0;
+            animation: rise .8s var(--ease-out) 2.02s forwards;
+        }
+
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 12px;
+            background: var(--ink);
+            color: var(--paper);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            letter-spacing: .12em;
+            padding: 16px 30px;
+            border: 1px solid var(--ink);
+            transition: background .35s var(--ease-out), color .35s var(--ease-out), transform .35s var(--ease-out);
+        }
+        .btn-primary .arrow { transition: transform .35s var(--ease-out); }
+        .btn-primary:hover { background: transparent; color: var(--ink); transform: translateY(-2px); }
+        .btn-primary:hover .arrow { transform: translateX(5px); }
+        .btn-primary:focus-visible, .btn-ghost:focus-visible {
+            outline: 2px solid var(--signal); outline-offset: 3px;
+        }
+
+        .btn-ghost {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            letter-spacing: .12em;
+            color: var(--ink);
+            padding-bottom: 4px;
+            border-bottom: 1px dotted var(--ink-45);
+            transition: border-color .3s var(--ease-out), letter-spacing .3s var(--ease-out);
+        }
+        .btn-ghost:hover { border-bottom-style: solid; border-color: var(--ink); letter-spacing: .16em; }
+
+        /* 底部滚动提示 */
+        .scroll-hint {
+            position: absolute;
+            z-index: 4;
+            left: 50%; bottom: 30px;
+            transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            color: var(--ink-45);
+            opacity: 0;
+            animation: rise .8s var(--ease-out) 2.35s forwards;
+        }
+        .scroll-hint i {
+            width: 1px; height: 34px;
+            background: linear-gradient(var(--ink-45), transparent);
+            animation: drop 1.8s var(--ease-out) infinite;
+        }
+
+        /* ============================================================
+           点阵色带（halftone 分隔）
+           ============================================================ */
+        .dot-band {
+            height: 72px;
+            background-image: radial-gradient(var(--ink) 1.6px, transparent 2px);
+            background-size: 16px 16px;
+            -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+                    mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+            opacity: .55;
+        }
+
+        /* ============================================================
+           结构区：面板卡片
+           ============================================================ */
+        .structure {
+            padding: 110px clamp(28px, 5vw, 72px) 120px;
+        }
+        .structure-inner { max-width: 1120px; margin: 0 auto; }
+        .structure-head {
+            display: flex; align-items: baseline; gap: 22px;
+            margin-bottom: 60px;
+        }
+        .structure-head h2 {
+            font-size: clamp(26px, 2.6vw, 34px);
+            font-weight: 700;
+            letter-spacing: -.01em;
+        }
+        .structure-head .rule { flex: 1; height: 1px; background: var(--ink-25); }
+
+        /* ---------------- 团队介绍 ---------------- */
+        .team-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 340px;
+            gap: clamp(36px, 5vw, 64px);
+            align-items: start;
+        }
+        .team-prose p {
+            font-size: 15.5px;
+            line-height: 1.95;
+            color: var(--ink-70);
+            margin-bottom: 22px;
+        }
+        .team-prose p:last-child { margin-bottom: 0; }
+        .team-prose b { font-weight: 700; color: var(--ink); }
+        .team-statement {
+            font-size: clamp(19px, 1.8vw, 24px);
+            line-height: 1.65;
+            color: var(--ink);
+            font-weight: 500;
+            margin-bottom: 30px;
+        }
+
+        /* 右侧药谱台账：名号 / 口号 / 理念 / 行事 */
+        .team-ledger {
+            border: 1px solid var(--ink-12);
+            border-radius: 20px;
+            background: rgba(var(--ink-rgb), .03);
+            padding: 6px 28px;
+        }
+        .team-row {
+            padding: 22px 0;
+            border-bottom: 1px dotted var(--ink-25);
+        }
+        .team-row:last-child { border-bottom: 0; }
+        .team-row dt {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: .16em;
+            color: var(--signal);
+            margin-bottom: 9px;
+        }
+        .team-row dd {
+            font-size: 14.5px;
+            line-height: 1.8;
+            color: var(--ink);
+        }
+
+        /* ---------------- 页脚 ---------------- */
+        footer {
+            border-top: 1px dotted var(--ink-25);
+            padding: 56px clamp(28px, 5vw, 72px) 0;
+        }
+        .foot-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+            padding-bottom: 44px;
+        }
+        .foot-meta .slogan {
+            max-width: 300px;
+            font-size: 13.5px;
+            color: var(--ink-45);
+            line-height: 1.8;
+        }
+        .foot-meta .slogan b { color: var(--ink); font-weight: 500; }
+        .foot-mark {
+            user-select: none;
+            line-height: .8;
+            font-weight: 700;
+            font-size: clamp(56px, 11.5vw, 188px);
+            letter-spacing: .02em;
+            white-space: nowrap;
+            text-align: center;
+            color: transparent;
+            -webkit-text-stroke: 1px var(--ink-25);
+            transform: scaleY(.9);
+            transform-origin: center;
+            margin: 0 -2vw;
+        }
+        .foot-bottom {
+            display: flex;
+            justify-content: space-between;
+            padding: 18px 0 22px;
+        }
+
+        /* ---------------- 动效 ---------------- */
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(22px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes lineUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes blink {
+            0%, 55% { opacity: 1; }
+            56%, 100% { opacity: .18; }
+        }
+        @keyframes drop {
+            0% { transform: scaleY(0); transform-origin: top; }
+            45% { transform: scaleY(1); transform-origin: top; }
+            46% { transform-origin: bottom; }
+            100% { transform: scaleY(0); transform-origin: bottom; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .001ms !important;
+            }
+            .eyebrow, .lead, .actions, .scroll-hint { opacity: 1 !important; }
+            h1 .line > span { opacity: 1 !important; transform: none !important; }
+        }
+
+        /* 窄屏兜底（站点以 PC 为主，移动端由 guard 跳转） */
+        @media (max-width: 1080px) {
+            .hero-copy { max-width: 78vw; }
+            .hud-br { display: none; }
+            .team-grid { grid-template-columns: 1fr; gap: 34px; }
+        }
+    </style>
 </head>
 <body>
+    <main>
+        <!-- ================= HERO：整屏 ASCII 矩阵 ================= -->
+        <section class="hero" id="hero">
+            <canvas id="matrix" aria-hidden="true"></canvas>
+
+            <span class="corner tl" aria-hidden="true"></span>
+            <span class="corner tr" aria-hidden="true"></span>
+            <span class="corner bl" aria-hidden="true"></span>
+            <span class="corner br" aria-hidden="true"></span>
+
+            <div class="hud hud-tr mono">
+                <span class="live-dot" aria-hidden="true"></span>
+                ASCII FIELD · LIVE
+            </div>
+            <div class="hud hud-br mono">
+                GLYPH SET / 018<br>
+                PAPER <span id="hud-paper">#F4F3EF</span> · INK <span id="hud-ink">#141310</span><br>
+                SIGNAL <span id="hud-sig">#DF3B2A</span>
+            </div>
+            <div class="hud hud-bl mono">
+                <span>FIELD 07 / ICON RENDERED IN CODE</span>
+            </div>
+
+            <div class="hero-copy">
+                <p class="eyebrow mono">
+                    <span class="tick" aria-hidden="true"></span>
+                    点阵界面系统 · ASCII MATRIX 03
+                </p>
+
+                <h1>
+                    <span class="line"><span>开方未来的可能<span class="dot">.</span></span></span>
+                </h1>
+
+                <p class="lead">
+                    <b>团队理念</b> —— 在未来的无限种可能中，<br>
+                    像在药铺之中开方一样，熟练地应对下一步操作。
+                </p>
+
+                <div class="actions">
+                    <a class="btn-primary" href="#">
+                        开始了解
+                        <span class="arrow" aria-hidden="true">→</span>
+                    </a>
+                    <a class="btn-ghost mono" href="#">联系我们</a>
+                </div>
+            </div>
+
+            <div class="scroll-hint mono">
+                <span>SCROLL</span>
+                <i aria-hidden="true"></i>
+            </div>
+        </section>
+
+        <div class="dot-band" aria-hidden="true"></div>
+
+        <!-- ================= 团队介绍 ================= -->
+        <section class="structure" id="team">
+            <div class="structure-inner">
+                <div class="structure-head">
+                    <span class="mono">01 / TEAM</span>
+                    <h2>团队介绍</h2>
+                    <span class="rule" aria-hidden="true"></span>
+                </div>
+
+                <div class="team-grid">
+                    <div class="team-prose">
+                        <p class="team-statement">
+                            Optionext 药铺子 —— 一支相信「下一步」可以被熟练应对的团队。
+                        </p>
+                        <p>
+                            我们的名字由 <b>Option</b> 与 <b>next</b> 合成：Option
+                            是未来摊开的无限种可能，ext 是当下迈出的下一步。未来从不只有
+                            一个答案，真正要紧的，是在岔路口保持镇定——认出症候、理清头绪，
+                            然后稳稳地抓好药、开对方。
+                        </p>
+                        <p>
+                            「在未来的无限种可能中，像在药铺之中开方一样，熟练地应对下一步操作。」
+                            这是我们的团队理念。像老药铺对待每一位求医之人那样对待每一件事：
+                            先看清，再下手；药材地道、分量清楚、方子可查，不凭侥幸，也不尚空谈。
+                        </p>
+                        <p>
+                            我们相信，秩序感不是束缚，而是应对变化的底气。抽屉贴着标签，
+                            药斗归着药材，再陌生的状况也能一步步拆解成熟练的动作。把复杂留给
+                            系统，把清晰留给判断——在每一次从容开方之间，把未来的可能一点点
+                            做出来。
+                        </p>
+                    </div>
+
+                    <dl class="team-ledger">
+                        <div class="team-row">
+                            <dt>名号 / NAME</dt>
+                            <dd>药铺子 · Optionext</dd>
+                        </div>
+                        <div class="team-row">
+                            <dt>口号 / SLOGAN</dt>
+                            <dd>开方未来的可能</dd>
+                        </div>
+                        <div class="team-row">
+                            <dt>理念 / PRINCIPLE</dt>
+                            <dd>在未来的无限种可能中，像在药铺之中开方一样，熟练地应对下一步操作。</dd>
+                        </div>
+                        <div class="team-row">
+                            <dt>行事 / PRACTICE</dt>
+                            <dd>先看清，再下手；分明、清楚、可查。</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <div class="foot-meta mono">
+                <span class="slogan"><b>OPTIONEXT · 药铺子</b><br>把复杂留给系统，把清晰留给判断。</span>
+                <span>RENDERED GLYPH BY GLYPH<br>SYSTEM 03 · DUAL SIDE</span>
+            </div>
+            <div class="foot-mark" aria-hidden="true">OPTIONEXT</div>
+            <div class="foot-bottom mono">
+                <span>© 2026 OPTIONEXT · 药铺子</span>
+                <span>PAPER / INK · TWO HALVES</span>
+            </div>
+        </footer>
+    </main>
+
+    <script>
+    (function () {
+        'use strict';
+
+        /* ============================================================
+           常量 / 字符集
+           颜色由 CSS 令牌实时读取 —— 明 / 暗主题切换时整幅矩阵随之变色
+           ============================================================ */
+        function hexRgb(h) {
+            h = h.replace('#', '').trim();
+            return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+        }
+        function readTheme() {
+            var cs = getComputedStyle(document.documentElement);
+            return {
+                ink: hexRgb(cs.getPropertyValue('--ink')),
+                paper: hexRgb(cs.getPropertyValue('--paper')),
+                sig: hexRgb(cs.getPropertyValue('--signal'))
+            };
+        }
+        var TC = readTheme();
+        var INK   = TC.ink;
+        var SIG   = TC.sig;
+        var PAPER = TC.paper;
+        var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        var GAP = 20;                 // 栅格间距（CSS px）
+        var FS  = 12.5;               // 常规字号
+
+        var SCRAMBLE = ['0','1','/','\\','|','+','*','#','=','<','>','%','&',':','x','X','@','$','·','-'];
+        var FIELD_G  = ['·','·','·','·','.','.',':','+','x','*','/','\\','|','-','='];
+        var EDGE_G   = ['·','.','*','+','x','/','\\','|'];
+        var MID_G    = ['x','X','*','%','+','/','\\','|','1'];
+        var CORE_G   = ['█','▓','#','@','%','&'];
+        var FRONT_G  = ['█','▓','▒','#','@','&','%','$'];
+
+        // 横向冲击波时间轴（ms）
+        var T_CHAOS_END = 420;        // 混沌期结束，波从左屏外进入
+        var WAVE_DUR    = 1250;       // 横扫时长
+        var WAVE_PRE    = 55;         // 波前预激宽度（px）
+        var WAVE_TAIL   = 130;        // 尾流衰减宽度（px）
+        var WAVE_CORE   = 30;         // 核心带宽（px）
+        var WAVE_EDGE   = 8;          // 锋刃半宽（px）
+        var IDLE_AT     = T_CHAOS_END + WAVE_DUR + 400;
+
+        var cv  = document.getElementById('matrix');
+        var ctx = cv.getContext('2d');
+        var heroEl  = document.getElementById('hero');
+        var copyEl  = document.querySelector('.hero-copy');
+
+        var cssW = 0, cssH = 0, cols = 0, rows = 0, ox = 0, oy = 0;
+        var cells = [];
+        var quiet = null;
+        var started = performance.now();
+        var settleNow = false;       // resize / reduced-motion 直接呈现完成态
+
+        var mouse = { x: -9999, y: -9999, active: false };
+        var bursts = [];             // 点击：字符爆裂
+        var clickSweepAt = -1;       // 点中图标：细字符带重扫起点
+
+        /* ---------------- 随机（种子） ---------------- */
+        function rnd(seed) {
+            var x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+            return x - Math.floor(x);
+        }
+        function pick(arr, seed) { return arr[Math.floor(rnd(seed) * arr.length)]; }
+        function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+        function easeInOutCubic(x) { return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+        function easeOutBack(x) {
+            var c1 = 1.70158, c3 = c1 + 1;
+            return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+        }
+        function mixRgb(a, b, k) {
+            return [
+                Math.round(a[0] + (b[0] - a[0]) * k),
+                Math.round(a[1] + (b[1] - a[1]) * k),
+                Math.round(a[2] + (b[2] - a[2]) * k)
+            ];
+        }
+
+        /* ============================================================
+           字符精灵缓存（字符 × 字号 × 颜色 × 透明度档位）
+           ============================================================ */
+        var sprites = {};
+        function sprite(ch, rgb, a, fs) {
+            var fsk = Math.round(fs * 2);
+            var key = ch + '|' + fsk + '|' + rgb.join(',') + '|' + Math.round(a * 10);
+            var s = sprites[key];
+            if (!s) {
+                var size = Math.ceil(fs * 1.5);
+                s = document.createElement('canvas');
+                s.width = s.height = size * dpr;
+                var c = s.getContext('2d');
+                c.scale(dpr, dpr);
+                c.font = '500 ' + fs + 'px "IBM Plex Mono", ui-monospace, Consolas, monospace';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillStyle = 'rgba(' + rgb.join(',') + ',' + a + ')';
+                c.fillText(ch, size / 2, size / 2 + .5);
+                s._size = size;
+                sprites[key] = s;
+            }
+            return s;
+        }
+
+        /* ============================================================
+           代码绘制品牌图标（按 PNG 实测几何，100 × 27 归一化画布）
+           笔画 A：左上横 → 斜降 → 下横（连续圆角折线）
+           笔画 B：右上角独立横杠
+           ============================================================ */
+        var PATH_A = [[0, 3.72], [44.2, 3.72], [57.3, 23.48], [100, 23.48]];
+        var PATH_B = [[55.8, 3.72], [100, 3.72]];
+        var ICON_H = 27, STROKE = 4.94;
+
+        function preheat() {
+            for (var i = 0; i < cells.length; i++) {
+                var c = cells[i];
+                if (c.kind > 0) sprite(c.glyph, INK, c.baseA, FS + .5);
+            }
+        }
+
+        function build() {
+            var rect = heroEl.getBoundingClientRect();
+            cssW = rect.width; cssH = rect.height;
+            cv.width  = Math.max(1, Math.round(cssW * dpr));
+            cv.height = Math.max(1, Math.round(cssH * dpr));
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            cols = Math.floor(cssW / GAP) + 1;
+            rows = Math.floor(cssH / GAP) + 1;
+            ox = (cssW - (cols - 1) * GAP) / 2;
+            oy = (cssH - (rows - 1) * GAP) / 2;
+
+            /* ---- 图标栅格映射 ---- */
+            var scale = Math.min(cols * .46 / 100, rows * .40 / ICON_H);
+            var ccx = cols * .635, ccy = rows * .50;
+            var gW = 100 * scale, gH = ICON_H * scale;
+            var x0 = ccx - gW / 2, y0 = ccy - gH / 2;
+
+            /* ---- 离屏栅化两条笔画 ---- */
+            var SS = 4;
+            var oc = document.createElement('canvas');
+            oc.width = cols * SS; oc.height = rows * SS;
+            var o = oc.getContext('2d');
+            o.scale(SS, SS);
+            o.lineCap = 'round';
+            o.lineJoin = 'round';
+            o.strokeStyle = '#fff';
+            o.lineWidth = STROKE * scale;
+
+            function strokePath(P) {
+                o.beginPath();
+                o.moveTo(x0 + P[0][0] * scale, y0 + P[0][1] * scale);
+                for (var i = 1; i < P.length; i++) o.lineTo(x0 + P[i][0] * scale, y0 + P[i][1] * scale);
+                o.stroke();
+            }
+            strokePath(PATH_A);
+            strokePath(PATH_B);
+
+            var img = o.getImageData(0, 0, oc.width, oc.height).data;
+            function covAt(gx, gy) {
+                var sum = 0;
+                for (var sy = 0; sy < SS; sy++) {
+                    for (var sx = 0; sx < SS; sx++) {
+                        var ix = (gy * SS + sy) * oc.width + (gx * SS + sx);
+                        sum += img[ix * 4 + 3];
+                    }
+                }
+                return sum / (SS * SS * 255);
+            }
+
+            /* ---- 生成格点 ---- */
+            cells = [];
+            for (var gy = 0; gy < rows; gy++) {
+                for (var gx = 0; gx < cols; gx++) {
+                    var cov = covAt(gx, gy);
+                    var seed = gx * 738.37 + gy * 921.13;
+                    var cell = {
+                        gx: gx, gy: gy,
+                        hx: ox + gx * GAP, hy: oy + gy * GAP,
+                        seed: seed,
+                        sens: .7 + rnd(seed + 1) * .6,      // 波敏感度（避免边缘整齐）
+                        phase: rnd(seed + 2) * 70,          // 锁定相位延迟
+                        kind: 0, glyph: '·', baseA: .1,
+                        locked: settleNow, lockT: settleNow ? -1 : 0,
+                        ox2: 0, oy2: 0,                     // 鼠标斥力偏移
+                        burstT: -1e9, bx: 0, by: 0,         // 点击爆裂
+                        near: false,
+                        nextShuffle: 0
+                    };
+
+                    if (cov >= .62) {
+                        cell.kind = 3; cell.glyph = pick(CORE_G, seed); cell.baseA = .95;
+                    } else if (cov >= .36) {
+                        cell.kind = 2; cell.glyph = pick(MID_G, seed); cell.baseA = .78;
+                    } else if (cov >= .14) {
+                        cell.kind = 1; cell.glyph = pick(EDGE_G, seed); cell.baseA = .5;
+                    } else {
+                        cell.glyph = rnd(seed) < .62 ? '·' : pick(FIELD_G, seed + 13);
+                        cell.baseA = .08 + rnd(seed + 5) * .1;
+                    }
+                    cells.push(cell);
+                }
+            }
+
+            /* 预热完成态精灵 */
+            preheat();
+            calcQuiet();
+        }
+
+        /* ---------------- 文案静区：压暗其下字符 ---------------- */
+        function calcQuiet() {
+            var hr = heroEl.getBoundingClientRect();
+            var cr = copyEl.getBoundingClientRect();
+            var pad = 44;
+            quiet = {
+                x0: cr.left - hr.left - pad,
+                y0: cr.top - hr.top - pad,
+                x1: cr.right - hr.left + pad,
+                y1: cr.bottom - hr.top + pad
+            };
+        }
+        function quietMul(x, y) {
+            if (!quiet) return 1;
+            var fx = 26, fy = 26;
+            var ax = clamp((x - quiet.x0) / fx, 0, 1) * clamp((quiet.x1 - x) / fx, 0, 1);
+            var ay = clamp((y - quiet.y0) / fy, 0, 1) * clamp((quiet.y1 - y) / fy, 0, 1);
+            return 1 - ax * ay * .88;
+        }
+
+        /* ============================================================
+           交互（纯字符反馈，无任何线条/光斑）
+           ============================================================ */
+        heroEl.addEventListener('pointermove', function (e) {
+            var r = cv.getBoundingClientRect();
+            mouse.x = e.clientX - r.left;
+            mouse.y = e.clientY - r.top;
+            mouse.active = true;
+        });
+        heroEl.addEventListener('pointerleave', function () { mouse.active = false; });
+
+        heroEl.addEventListener('click', function (e) {
+            if (reduced || e.target.closest('a,button')) return;
+            var r = cv.getBoundingClientRect();
+            var x = e.clientX - r.left, y = e.clientY - r.top;
+            var now = performance.now() - started;
+
+            // 1) 字符爆裂：半径内格点获得径向冲量
+            var hitIcon = false;
+            for (var i = 0; i < cells.length; i++) {
+                var c = cells[i];
+                var dd = Math.hypot(c.hx - x, c.hy - y);
+                if (dd < 130) {
+                    var ang = Math.atan2(c.hy - y, c.hx - x) + (rnd(c.seed + now) - .5) * .7;
+                    var len = (1 - dd / 130) * (22 + rnd(c.seed + 3) * 26);
+                    c.burstT = now;
+                    c.bx = Math.cos(ang) * len;
+                    c.by = Math.sin(ang) * len;
+                    if (c.kind > 0 && dd < GAP * 2) hitIcon = true;
+                }
+            }
+            bursts.push({ t: now });
+
+            // 2) 点中图标 → 细字符带从左到右重扫
+            if (hitIcon) clickSweepAt = now;
+        });
+
+        /* ============================================================
+           波前线：左右位置 + 纵向蠕动（带点活动）
+           ============================================================ */
+        function waveFrontY(baseX, y, t) {
+            return baseX
+                + Math.sin(y * .018 + t * .006) * 12
+                + Math.sin(y * .047 - t * .012) * 6
+                + Math.sin(y * .009 + t * .003) * 7;
+        }
+        function sweepEase(x) { return easeInOutCubic(x); }
+
+        function chaosGlyph(cell, t, salt) {
+            return SCRAMBLE[Math.floor(rnd(cell.seed + salt + Math.floor(t / 46)) * SCRAMBLE.length) % SCRAMBLE.length];
+        }
+
+        /* ============================================================
+           渲染
+           ============================================================ */
+        function render(t) {
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            /* ---- 主横向波 ---- */
+            var chaos = t < T_CHAOS_END;
+            var wp = clamp((t - T_CHAOS_END) / WAVE_DUR, 0, 1);
+            var waveOn = wp > 0 && wp < 1;
+            var waveBase = -80 + sweepEase(wp) * (cssW + 160);
+
+            /* ---- 点击重扫细带 ---- */
+            var clickOn = false, clickBase = 0;
+            if (clickSweepAt >= 0) {
+                var cp = (t - clickSweepAt) / 850;
+                if (cp >= 0 && cp <= 1) {
+                    clickOn = true;
+                    clickBase = -40 + sweepEase(cp) * (cssW + 80);
+                } else if (cp > 1.4) {
+                    clickSweepAt = -1;
+                }
+            }
+
+            /* ---- 待机周期细扫 ---- */
+            var idleOn = false, idleBase = 0;
+            if (t > IDLE_AT + 1500 && !reduced) {
+                var cyc = (t - IDLE_AT - 1500) % 7800;
+                if (cyc < 1400) {
+                    idleOn = true;
+                    idleBase = -40 + sweepEase(cyc / 1400) * (cssW + 80);
+                }
+            }
+
+            for (var i = 0; i < cells.length; i++) {
+                var c = cells[i];
+                var x = c.hx, y = c.hy;
+                var glyph = c.glyph, rgb = INK, alpha = c.baseA, fs = FS + .5;
+                var inBand = false;   // 波核心带（压过静区，保证横扫可见）
+
+                /* ---- 波前位置（该格高度处） ---- */
+                var front = waveOn ? waveFrontY(waveBase, y, t) : -1e9;
+                var d = front - x;    // >0 尾流，<0 波前
+
+                /* ---- 锁定：波扫过图标格点的瞬间 ---- */
+                if (waveOn && !c.locked && c.kind > 0 && d >= -c.phase) {
+                    c.locked = true;
+                    c.lockT = t;
+                }
+
+                var hot = 0;          // 红热度 0..1
+                var spark = false;    // 纸色火花
+
+                /* 背景格远离波带时，立刻回到稳态点阵（不跟着满屏乱码） */
+                var farFromWave = c.kind === 0 && waveOn && (d < -WAVE_PRE || d > WAVE_TAIL);
+
+                if (chaos) {
+                    /* 混沌期：以淡弱点阵为主，少量字符跳变 */
+                    glyph = rnd(c.seed + Math.floor(t / 70)) < .74
+                        ? pick(FIELD_G, c.seed + Math.floor(t / 60))
+                        : chaosGlyph(c, t, 7);
+                    alpha = .05 + rnd(c.seed + Math.floor(t / 90)) * .1;
+                    fs = FS;
+                    x += Math.sin(t * .021 + c.seed) * .9;
+                    y += Math.cos(t * .017 + c.seed * 1.3) * .9;
+                } else if (waveOn && !c.locked && !farFromWave) {
+                    /* 波前未到（图标暗场）/ 预激区：低亮乱码，逼近时被吸亮 */
+                    glyph = chaosGlyph(c, t, 7);
+                    alpha = .07 + rnd(c.seed + Math.floor(t / 90)) * .12;
+                    fs = FS;
+                    var pre = clamp(1 + d / WAVE_PRE, 0, 1);
+                    if (pre > 0) {
+                        alpha = .16 + .5 * pre * c.sens;
+                        if (pre > .72) {
+                            glyph = pick(MID_G, c.seed + Math.floor(t / 40));
+                            fs = FS + 1.5;
+                        }
+                        x += pre * pre * 5 * c.sens;   // 被波吸引，向前趔趄
+                    }
+                } else if (farFromWave) {
+                    glyph = c.glyph;
+                    alpha = c.baseA + Math.sin(x * .012 + y * .016 - t * .0011) * .03;
+                }
+
+                if (waveOn) {
+                    /* ---- 锋刃：最亮最密的一条细线，红黑跳变 ---- */
+                    if (d > -WAVE_EDGE && d < WAVE_EDGE) {
+                        inBand = true;
+                        var h1 = rnd(c.seed + Math.floor(t / 34));
+                        glyph = pick(FRONT_G, c.seed + Math.floor(t / 26));
+                        fs = FS + 7;
+                        alpha = 1;
+                        if (h1 < .42) { rgb = SIG; hot = 1; }
+                        else if (h1 > .94) { rgb = PAPER; spark = true; }
+                        if (c.kind > 0) { rgb = SIG; hot = 1; }
+                    } else if (d >= -WAVE_CORE * .4 && d < WAVE_CORE) {
+                        /* ---- 带身：锋刃两侧的衬带 ---- */
+                        inBand = true;
+                        glyph = pick(FRONT_G, c.seed + Math.floor(t / 40));
+                        fs = FS + 3.5;
+                        alpha = .75;
+                        if (rnd(c.seed + Math.floor(t / 46)) < .2) { rgb = SIG; hot = 1; }
+                        if (c.kind > 0) { rgb = SIG; hot = .8; }
+                    } else if (d >= WAVE_CORE && d < WAVE_TAIL) {
+                        /* ---- 尾流：剧烈乱码迅速衰减 ---- */
+                        var k = 1 - (d - WAVE_CORE) / (WAVE_TAIL - WAVE_CORE);
+                        glyph = chaosGlyph(c, t, 21);
+                        alpha = Math.max(alpha, (.08 + .36 * k) * c.sens);
+                        fs = FS + 1.5 * k;
+                        var h2 = rnd(c.seed + Math.floor(t / 55));
+                        if (k > .5 && h2 < .2) { rgb = SIG; hot = 1; }
+                    } else if (d < -WAVE_CORE * .4 && d > -WAVE_PRE) {
+                        var pf = 1 + d / WAVE_PRE;
+                        if (pf > .5) {
+                            glyph = pick(SCRAMBLE, c.seed + Math.floor(t / 50));
+                            fs = FS + 2 * pf;
+                            alpha = Math.max(alpha, .14 + .2 * pf);
+                        }
+                    }
+
+                    /* ---- 图标格点锁定瞬间：红热打印 + 沿波向过冲回弹 ---- */
+                    if (c.locked && c.kind > 0) {
+                        var age = t - c.lockT;
+                        if (age < 620) {
+                            hot = Math.max(hot, Math.pow(1 - age / 620, 1.6) * (c.kind === 3 ? 1 : .7));
+                            var back = clamp(age / 420, 0, 1);
+                            x += (1 - easeOutBack(back)) * 15 * c.sens;
+                            if (age < 110) glyph = chaosGlyph(c, t, 33);
+                            else glyph = c.glyph;
+                            alpha = Math.max(alpha, c.baseA);
+                        }
+                    }
+                }
+
+                /* ---- 点击重扫细带：只点燃图标 ---- */
+                if (clickOn && c.kind > 0) {
+                    var cd = waveFrontY(clickBase, y, t * 1.3) - x;
+                    if (Math.abs(cd) < 16) {
+                        hot = Math.max(hot, .9);
+                        glyph = pick(FRONT_G, c.seed + Math.floor(t / 34));
+                        inBand = true;
+                    } else if (cd > 16 && cd < 110) {
+                        hot = Math.max(hot, .55 * (1 - (cd - 16) / 94));
+                    }
+                }
+
+                /* ---- 待机细扫：淡红字符带 ---- */
+                if (idleOn) {
+                    var id = waveFrontY(idleBase, y, t * .8) - x;
+                    if (c.kind > 0 && Math.abs(id) < 13) {
+                        hot = Math.max(hot, .5);
+                    } else if (Math.abs(id) < 20) {
+                        glyph = pick(SCRAMBLE, c.seed + Math.floor(t / 60));
+                    }
+                }
+
+                /* ---- 稳态：图标已锁定字形；背景偶发换字 + 呼吸波 ---- */
+                if (!waveOn && !chaos) {
+                    if (c.kind > 0 && c.locked) {
+                        glyph = c.glyph; alpha = c.baseA; fs = FS + .5;
+                    } else if (c.kind === 0) {
+                        if (!reduced) {
+                            if (t > c.nextShuffle && rnd(c.seed + Math.floor(t / 700)) > .82) {
+                                c.nextShuffle = t + 400 + rnd(c.seed + t) * 2600;
+                            }
+                            if (t < c.nextShuffle && t > c.nextShuffle - 380) {
+                                glyph = pick(FIELD_G, c.seed + Math.floor(t / 64));
+                            }
+                            alpha += Math.sin(x * .012 + y * .016 - t * .0011) * .03;
+                        }
+                    }
+                }
+
+                /* ---- 鼠标斥力（细条状鼠标划过的加强版） ---- */
+                var repelX = 0, repelY = 0;
+                c.near = false;
+                if (mouse.active && !reduced) {
+                    var mdx = x - mouse.x, mdy = y - mouse.y;
+                    var md = Math.hypot(mdx, mdy);
+                    if (md < 120 && md > .01) {
+                        var f = 1 - md / 120;
+                        var force = (c.kind === 3 ? 3 : c.kind === 2 ? 7 : 16) * f;
+                        repelX = mdx / md * force;
+                        repelY = mdy / md * force;
+                        c.near = c.kind === 0;
+                        if (c.near && rnd(c.seed + Math.floor(t / 80)) > .45) {
+                            glyph = pick(SCRAMBLE, c.seed + Math.floor(t / 80));
+                            alpha = Math.max(alpha, .3 + .35 * f);
+                        }
+                    }
+                }
+                c.ox2 += (repelX - c.ox2) * .2;
+                c.oy2 += (repelY - c.oy2) * .2;
+                x += c.ox2; y += c.oy2;
+
+                /* ---- 点击爆裂位移 ---- */
+                if (t - c.burstT < 560) {
+                    var decay = Math.exp(-(t - c.burstT) / 200);
+                    x += c.bx * decay;
+                    y += c.by * decay;
+                    if (rnd(c.seed + Math.floor(t / 50)) > .35) {
+                        glyph = pick(SCRAMBLE, c.seed + Math.floor(t / 50));
+                    }
+                }
+
+                /* ---- 红热着色 ---- */
+                if (hot > 0 && !spark) rgb = mixRgb(INK, SIG, clamp(hot, 0, 1));
+                if (hot > .4) alpha = Math.min(1, Math.max(alpha, c.baseA + .25 * hot));
+
+                /* ---- 尾流速度拖影（纯字符残影） ---- */
+                var ghost = 0;
+                if (inBand && waveOn) ghost = .34;   // 核心带：近距强残影，拉出速度线
+                else if (waveOn && d > WAVE_CORE && d < WAVE_TAIL * .7) ghost = (1 - (d - WAVE_CORE) / (WAVE_TAIL * .7 - WAVE_CORE)) * .16;
+                if (ghost > .02 && !spark) {
+                    var gs = sprite(glyph, rgb, clamp(alpha * ghost, .02, .2), fs);
+                    ctx.drawImage(gs, Math.round(x - 9 - gs._size / 2), Math.round(y - gs._size / 2), gs._size, gs._size);
+                }
+
+                /* ---- 静区压暗（波核心带除外） ---- */
+                if (!inBand) alpha *= quietMul(x, y);
+
+                if (alpha > .02) {
+                    var sp = sprite(glyph, rgb, clamp(alpha, .02, 1), fs);
+                    ctx.drawImage(sp, Math.round(x - sp._size / 2), Math.round(y - sp._size / 2), sp._size, sp._size);
+                }
+            }
+
+            // 清理过期爆裂标记（仅用于节流，数组不参与渲染）
+            if (bursts.length && t - bursts[0].t > 900) bursts.shift();
+        }
+
+        /* ---------------- 主循环 ---------------- */
+        function loop(now) {
+            var t = settleNow ? 100000 : now - started;
+            render(t);
+            requestAnimationFrame(loop);
+        }
+
+        /* ============================================================
+           主题切换：颜色实时跟随 CSS 令牌
+           ============================================================ */
+        var hudPaper = document.getElementById('hud-paper');
+        var hudInk   = document.getElementById('hud-ink');
+        var hudSig   = document.getElementById('hud-sig');
+        function syncHud() {
+            var cs = getComputedStyle(document.documentElement);
+            function up(el, v) { if (el) el.textContent = cs.getPropertyValue(v).trim().toUpperCase(); }
+            up(hudPaper, '--paper'); up(hudInk, '--ink'); up(hudSig, '--signal');
+        }
+
+        window.addEventListener('optionext:themechange', function () {
+            var nt = readTheme();
+            INK = nt.ink; SIG = nt.sig; PAPER = nt.paper;
+            sprites = {};
+            preheat();
+            syncHud();
+        });
+
+        /* ---------------- resize / 字体加载 ---------------- */
+        var resizeTimer;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+                settleNow = performance.now() - started > IDLE_AT;
+                build();
+            }, 140);
+        });
+        window.addEventListener('load', function () { calcQuiet(); syncHud(); });
+
+        build();
+        syncHud();
+        if (reduced) {
+            settleNow = true;
+            render(100000);
+        } else {
+            requestAnimationFrame(loop);
+        }
+    })();
+    </script>
+    <!-- 站点页眉组件（路径自解析，子目录页面同样可引用） -->
+    <script src="components/site-header.js"></script>
 </body>
 </html>
