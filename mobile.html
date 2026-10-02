@@ -5,7 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Optionext</title>
     <script src="components/device-guard.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f4f3ef;
+            color: #141310;
+            padding: 32px 24px;
+            font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+        }
+        .card { text-align: center; }
+        .kicker {
+            font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+            font-size: 11px;
+            letter-spacing: .22em;
+            color: rgba(20, 19, 16, .42);
+            margin-bottom: 18px;
+        }
+        .kicker b { color: #df3b2a; font-weight: 500; }
+        h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: .12em;
+            margin-bottom: 14px;
+        }
+        p {
+            font-size: 13px;
+            line-height: 1.8;
+            color: rgba(20, 19, 16, .55);
+        }
+        a {
+            display: inline-block;
+            margin-top: 26px;
+            padding: 11px 26px;
+            border: 1px solid rgba(20, 19, 16, .25);
+            border-radius: 999px;
+            font-size: 13px;
+            letter-spacing: .08em;
+            color: #141310;
+            text-decoration: none;
+            transition: background .25s ease, color .25s ease, border-color .25s ease;
+        }
+        a:active { transform: scale(.97); }
+        @media (hover: hover) {
+            a:hover { background: #141310; color: #f4f3ef; border-color: #141310; }
+        }
+    </style>
 </head>
 <body>
+    <div class="card">
+        <div class="kicker">SYS <b>/</b> MOBILE-01</div>
+        <h1>当前暂不支持移动端</h1>
+        <p>请使用桌面设备访问以获得完整体验</p>
+        <a href="desktop.html">仍要访问桌面版</a>
+    </div>
 </body>
 </html>
