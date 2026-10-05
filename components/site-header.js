@@ -81,11 +81,19 @@
         document.documentElement.dataset.theme = initial;
     }
 
-    /* ---------- 圆形按钮图形：左实右空的圆（◐），切换时旋转 180° ---------- */
-    var ICON =
-        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-            '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>' +
-            '<path d="M12 3.5 A8.5 8.5 0 0 0 12 20.5 Z" fill="currentColor"/>' +
+    /* ---------- 主题图标：明 / 暗模式下各显“另一半” ----------
+       亮色显月亮（点按进入暗色）· 暗色显太阳（点按进入亮色） */
+    var ICON_MOON =
+        '<svg class="sh-ic-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+            '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" ' +
+                'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>';
+    var ICON_SUN =
+        '<svg class="sh-ic-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+            '<circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/>' +
+            '<path d="M12 2.6v2.3M12 19.1v2.3M2.6 12h2.3M19.1 12h2.3' +
+                     'M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" ' +
+                'stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
         '</svg>';
 
     /* ---------- 构建 DOM ---------- */
@@ -97,7 +105,9 @@
                 '<img alt="药铺子 Optionext" loading="eager">' +
             '</a>' +
             '<nav class="sh-nav" aria-label="主导航"></nav>' +
-            '<button class="sh-toggle" type="button" aria-label="切换到暗色模式" aria-pressed="false" title="切换另一半">' + ICON + '</button>' +
+            '<button class="sh-toggle" type="button" aria-label="切换到暗色模式" aria-pressed="false" title="切换另一半">' +
+                '<span class="sh-icon">' + ICON_MOON + ICON_SUN + '</span>' +
+            '</button>' +
             '<button class="sh-burger" type="button" aria-label="展开菜单" aria-expanded="false" aria-controls="sh-mobile">' +
                 '<span></span><span></span><span></span>' +
             '</button>' +
