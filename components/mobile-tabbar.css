@@ -1,0 +1,135 @@
+/* ============================================================
+   OPTIONEXT · 移动端底部导航组件 mobile-tabbar
+   底部圆角矩形 · 毛玻璃 · 双主题（明 / 暗）· 纯文字双项
+   组件样式独立作用域 .mt-* ，可被任意深度页面引用
+   ============================================================ */
+
+:root {
+    --mt-paper-solid: rgba(244, 243, 239, .62);
+    --mt-paper-solid2: rgba(244, 243, 239, .88);
+    --mt-edge: rgba(20, 19, 16, .1);
+    --mt-shadow: rgba(20, 19, 16, .08);
+    --mt-shadow2: rgba(20, 19, 16, .13);
+    --mt-ink: #141310;
+    --mt-ink-70: rgba(20, 19, 16, .72);
+    --mt-ink-45: rgba(20, 19, 16, .42);
+    --mt-ink-25: rgba(20, 19, 16, .2);
+    --mt-signal: #df3b2a;
+    --mt-highlight: rgba(255, 255, 255, .65);
+    --mt-hover: rgba(20, 19, 16, .05);
+    --mt-font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    --mt-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --mt-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+:root[data-theme="dark"] {
+    --mt-paper-solid: rgba(17, 15, 13, .55);
+    --mt-paper-solid2: rgba(17, 15, 13, .86);
+    --mt-edge: rgba(233, 231, 225, .12);
+    --mt-shadow: rgba(0, 0, 0, .5);
+    --mt-shadow2: rgba(0, 0, 0, .62);
+    --mt-ink: #e9e7e1;
+    --mt-ink-70: rgba(233, 231, 225, .72);
+    --mt-ink-45: rgba(233, 231, 225, .45);
+    --mt-ink-25: rgba(233, 231, 225, .22);
+    --mt-signal: #ef4d3a;
+    --mt-highlight: rgba(255, 255, 255, .08);
+    --mt-hover: rgba(233, 231, 225, .08);
+}
+
+.mt-root {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    transform: translateX(-50%);
+    z-index: 1000;
+    width: min(460px, calc(100vw - 24px));
+    font-family: var(--mt-font-sans);
+    animation: mt-rise .7s var(--mt-ease) .1s both;
+}
+
+@keyframes mt-rise {
+    from { opacity: 0; transform: translate(-50%, 22px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.mt-bar {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 20px;
+    background: var(--mt-paper-solid);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+            backdrop-filter: blur(16px) saturate(1.5);
+    border: 1px solid var(--mt-edge);
+    box-shadow:
+        0 10px 34px var(--mt-shadow),
+        0 1px 0 var(--mt-highlight) inset;
+    transition: background .4s var(--mt-ease), box-shadow .4s var(--mt-ease),
+                border-color .4s var(--mt-ease);
+}
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    .mt-bar { background: var(--mt-paper-solid2); }
+}
+
+/* ---------------- 导航项（纯文字：左一项 / 右一项） ---------------- */
+.mt-item {
+    position: relative;
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 11px 8px 10px;
+    border-radius: 15px;
+    text-decoration: none;
+    color: var(--mt-ink-70);
+    white-space: nowrap;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: color .25s var(--mt-ease), background .25s var(--mt-ease),
+                transform .15s var(--mt-ease);
+}
+.mt-cn {
+    font-size: 14.5px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    line-height: 1.2;
+}
+
+/* 信号红小圆点：与桌面页眉同款指示符，悬于项顶 */
+.mt-item::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--mt-signal);
+    opacity: 0;
+    transform: translateX(-50%) scale(.4);
+    transition: opacity .25s var(--mt-ease), transform .25s var(--mt-ease);
+}
+
+@media (hover: hover) {
+    .mt-item:hover { color: var(--mt-ink); background: var(--mt-hover); }
+    .mt-item:hover::after { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+.mt-item:active { transform: scale(.96); background: var(--mt-hover); }
+.mt-item:focus-visible {
+    outline: 2px solid var(--mt-signal);
+    outline-offset: 3px;
+}
+
+.mt-item.mt-active { color: var(--mt-ink); }
+.mt-item.mt-active::after { opacity: 1; transform: translateX(-50%) scale(1); }
+
+@media (prefers-reduced-motion: reduce) {
+    .mt-root, .mt-bar, .mt-item, .mt-item::after {
+        animation: none !important;
+        transition-duration: .001ms !important;
+    }
+}

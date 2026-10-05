@@ -25,18 +25,13 @@
            ============================================================ */
         :root {
             --paper: #f4f3ef;
-            --paper-deep: #e7e5dd;
-            --paper-rgb: 244, 243, 239;
             --ink: #141310;
             --ink-rgb: 20, 19, 16;
             --ink-70: rgba(20, 19, 16, .72);
             --ink-45: rgba(20, 19, 16, .42);
             --ink-25: rgba(20, 19, 16, .22);
             --ink-12: rgba(20, 19, 16, .12);
-            --ink-05: rgba(20, 19, 16, .05);
             --signal: #df3b2a;
-            --signal-rgb: 223, 59, 42;
-            --frame: 28px;
             --font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
             --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
             --ease-out: cubic-bezier(.22, 1, .36, 1);
@@ -44,17 +39,13 @@
 
         :root[data-theme="dark"] {
             --paper: #0f0e0c;
-            --paper-deep: #070606;
-            --paper-rgb: 15, 14, 12;
             --ink: #e9e7e1;
             --ink-rgb: 233, 231, 225;
             --ink-70: rgba(233, 231, 225, .72);
             --ink-45: rgba(233, 231, 225, .45);
             --ink-25: rgba(233, 231, 225, .22);
             --ink-12: rgba(233, 231, 225, .12);
-            --ink-05: rgba(233, 231, 225, .06);
             --signal: #ef4d3a;
-            --signal-rgb: 239, 77, 58;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -109,38 +100,6 @@
             z-index: 0;
         }
 
-        /* 四角定位括线 */
-        .corner { position: absolute; width: 18px; height: 18px; z-index: 4; pointer-events: none; }
-        .corner::before, .corner::after {
-            content: ""; position: absolute; background: var(--ink);
-        }
-        .corner::before { width: 18px; height: 2px; }
-        .corner::after  { width: 2px; height: 18px; }
-        .corner.tl { top: 20px; left: 20px; }
-        .corner.tr { top: 20px; right: 20px; transform: scaleX(-1); }
-        .corner.bl { bottom: 20px; left: 20px; transform: scaleY(-1); }
-        .corner.br { bottom: 20px; right: 20px; transform: scale(-1, -1); }
-
-        /* HUD */
-        .hud { position: absolute; z-index: 4; }
-        .hud-tr { top: 86px; right: clamp(28px, 4vw, 56px); display: flex; align-items: center; gap: 9px; }
-        .hud-br {
-            bottom: 34px; right: clamp(28px, 4vw, 56px);
-            text-align: right; line-height: 2;
-            color: var(--ink-45);
-        }
-        .hud-bl {
-            bottom: 34px; left: clamp(28px, 4vw, 56px);
-            display: flex; align-items: center; gap: 10px;
-            color: var(--ink-45);
-        }
-
-        .live-dot {
-            width: 7px; height: 7px; border-radius: 50%;
-            background: var(--signal);
-            animation: blink 1.6s steps(1) infinite;
-        }
-
         /* ---------------- 左侧文案 ---------------- */
         .hero-copy {
             position: absolute;
@@ -150,14 +109,6 @@
             transform: translateY(-50%);
             max-width: 440px;
         }
-
-        .eyebrow {
-            display: flex; align-items: center; gap: 10px;
-            margin-bottom: 26px;
-            opacity: 0;
-            animation: rise .8s var(--ease-out) 1.5s forwards;
-        }
-        .eyebrow .tick { width: 28px; height: 1px; background: var(--ink-45); }
 
         h1 {
             font-size: clamp(40px, 4vw, 56px);
@@ -173,8 +124,7 @@
             transform: translateY(110%);
             animation: lineUp .9s var(--ease-out) forwards;
         }
-        h1 .line:nth-child(1) > span { animation-delay: 1.62s; }
-        h1 .line:nth-child(2) > span { animation-delay: 1.74s; }
+        h1 .line > span { animation-delay: 1.62s; }
         h1 .dot {
             display: inline;
             color: var(--signal);
@@ -322,45 +272,6 @@
             color: var(--ink);
         }
 
-        /* ---------------- 页脚 ---------------- */
-        footer {
-            border-top: 1px dotted var(--ink-25);
-            padding: 56px clamp(28px, 5vw, 72px) 0;
-        }
-        .foot-meta {
-            display: flex;
-            justify-content: space-between;
-            gap: 24px;
-            flex-wrap: wrap;
-            padding-bottom: 44px;
-        }
-        .foot-meta .slogan {
-            max-width: 300px;
-            font-size: 13.5px;
-            color: var(--ink-45);
-            line-height: 1.8;
-        }
-        .foot-meta .slogan b { color: var(--ink); font-weight: 500; }
-        .foot-mark {
-            user-select: none;
-            line-height: .8;
-            font-weight: 700;
-            font-size: clamp(56px, 11.5vw, 188px);
-            letter-spacing: .02em;
-            white-space: nowrap;
-            text-align: center;
-            color: transparent;
-            -webkit-text-stroke: 1px var(--ink-25);
-            transform: scaleY(.9);
-            transform-origin: center;
-            margin: 0 -2vw;
-        }
-        .foot-bottom {
-            display: flex;
-            justify-content: space-between;
-            padding: 18px 0 22px;
-        }
-
         /* ---------------- 动效 ---------------- */
         @keyframes rise {
             from { opacity: 0; transform: translateY(22px); }
@@ -368,10 +279,6 @@
         }
         @keyframes lineUp {
             to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes blink {
-            0%, 55% { opacity: 1; }
-            56%, 100% { opacity: .18; }
         }
         @keyframes drop {
             0% { transform: scaleY(0); transform-origin: top; }
@@ -386,14 +293,13 @@
                 animation-iteration-count: 1 !important;
                 transition-duration: .001ms !important;
             }
-            .eyebrow, .lead, .actions, .scroll-hint { opacity: 1 !important; }
+            .lead, .actions, .scroll-hint { opacity: 1 !important; }
             h1 .line > span { opacity: 1 !important; transform: none !important; }
         }
 
         /* 窄屏兜底（站点以 PC 为主，移动端由 guard 跳转） */
         @media (max-width: 1080px) {
             .hero-copy { max-width: 78vw; }
-            .hud-br { display: none; }
             .team-grid { grid-template-columns: 1fr; gap: 34px; }
         }
     </style>
@@ -404,30 +310,7 @@
         <section class="hero" id="hero">
             <canvas id="matrix" aria-hidden="true"></canvas>
 
-            <span class="corner tl" aria-hidden="true"></span>
-            <span class="corner tr" aria-hidden="true"></span>
-            <span class="corner bl" aria-hidden="true"></span>
-            <span class="corner br" aria-hidden="true"></span>
-
-            <div class="hud hud-tr mono">
-                <span class="live-dot" aria-hidden="true"></span>
-                ASCII FIELD · LIVE
-            </div>
-            <div class="hud hud-br mono">
-                GLYPH SET / 018<br>
-                PAPER <span id="hud-paper">#F4F3EF</span> · INK <span id="hud-ink">#141310</span><br>
-                SIGNAL <span id="hud-sig">#DF3B2A</span>
-            </div>
-            <div class="hud hud-bl mono">
-                <span>FIELD 07 / ICON RENDERED IN CODE</span>
-            </div>
-
             <div class="hero-copy">
-                <p class="eyebrow mono">
-                    <span class="tick" aria-hidden="true"></span>
-                    点阵界面系统 · ASCII MATRIX 03
-                </p>
-
                 <h1>
                     <span class="line"><span>开方未来的可能<span class="dot">.</span></span></span>
                 </h1>
@@ -508,18 +391,6 @@
                 </div>
             </div>
         </section>
-
-        <footer>
-            <div class="foot-meta mono">
-                <span class="slogan"><b>OPTIONEXT · 药铺子</b><br>把复杂留给系统，把清晰留给判断。</span>
-                <span>RENDERED GLYPH BY GLYPH<br>SYSTEM 03 · DUAL SIDE</span>
-            </div>
-            <div class="foot-mark" aria-hidden="true">OPTIONEXT</div>
-            <div class="foot-bottom mono">
-                <span>© 2026 OPTIONEXT · 药铺子</span>
-                <span>PAPER / INK · TWO HALVES</span>
-            </div>
-        </footer>
     </main>
 
     <script>
@@ -580,7 +451,6 @@
         var settleNow = false;       // resize / reduced-motion 直接呈现完成态
 
         var mouse = { x: -9999, y: -9999, active: false };
-        var bursts = [];             // 点击：字符爆裂
         var clickSweepAt = -1;       // 点中图标：细字符带重扫起点
 
         /* ---------------- 随机（种子） ---------------- */
@@ -695,11 +565,17 @@
             }
 
             /* ---- 生成格点 ---- */
+            /* 保留重建前的锁定状态：resize 不把入场动画打回原点 */
+            var oldLock = {};
+            for (var li = 0; li < cells.length; li++) {
+                if (cells[li].locked) oldLock[cells[li].gx + ',' + cells[li].gy] = cells[li].lockT;
+            }
             cells = [];
             for (var gy = 0; gy < rows; gy++) {
                 for (var gx = 0; gx < cols; gx++) {
                     var cov = covAt(gx, gy);
                     var seed = gx * 738.37 + gy * 921.13;
+                    var lk = oldLock[gx + ',' + gy];
                     var cell = {
                         gx: gx, gy: gy,
                         hx: ox + gx * GAP, hy: oy + gy * GAP,
@@ -707,7 +583,8 @@
                         sens: .7 + rnd(seed + 1) * .6,      // 波敏感度（避免边缘整齐）
                         phase: rnd(seed + 2) * 70,          // 锁定相位延迟
                         kind: 0, glyph: '·', baseA: .1,
-                        locked: settleNow, lockT: settleNow ? -1 : 0,
+                        locked: settleNow || lk !== undefined,
+                        lockT: lk !== undefined ? lk : (settleNow ? -1 : 0),
                         ox2: 0, oy2: 0,                     // 鼠标斥力偏移
                         burstT: -1e9, bx: 0, by: 0,         // 点击爆裂
                         near: false,
@@ -763,6 +640,10 @@
             mouse.active = true;
         });
         heroEl.addEventListener('pointerleave', function () { mouse.active = false; });
+        heroEl.addEventListener('pointercancel', function () { mouse.active = false; });
+        heroEl.addEventListener('pointerup', function (e) {
+            if (e.pointerType === 'touch') mouse.active = false;   // 触屏抬手即消，避免斥力卡死在触点
+        });
 
         heroEl.addEventListener('click', function (e) {
             if (reduced || e.target.closest('a,button')) return;
@@ -784,7 +665,6 @@
                     if (c.kind > 0 && dd < GAP * 2) hitIcon = true;
                 }
             }
-            bursts.push({ t: now });
 
             // 2) 点中图标 → 细字符带从左到右重扫
             if (hitIcon) clickSweepAt = now;
@@ -1032,36 +912,25 @@
                     ctx.drawImage(sp, Math.round(x - sp._size / 2), Math.round(y - sp._size / 2), sp._size, sp._size);
                 }
             }
-
-            // 清理过期爆裂标记（仅用于节流，数组不参与渲染）
-            if (bursts.length && t - bursts[0].t > 900) bursts.shift();
         }
 
-        /* ---------------- 主循环 ---------------- */
+        /* ---------------- 主循环（hero 离开视口自动挂帧省电） ---------------- */
+        var heroVisible = true;
+        if ('IntersectionObserver' in window) {
+            new IntersectionObserver(function (es) { heroVisible = es[0].isIntersecting; })
+                .observe(heroEl);
+        }
         function loop(now) {
-            var t = settleNow ? 100000 : now - started;
-            render(t);
             requestAnimationFrame(loop);
+            if (heroVisible) render(settleNow ? 100000 : now - started);
         }
 
-        /* ============================================================
-           主题切换：颜色实时跟随 CSS 令牌
-           ============================================================ */
-        var hudPaper = document.getElementById('hud-paper');
-        var hudInk   = document.getElementById('hud-ink');
-        var hudSig   = document.getElementById('hud-sig');
-        function syncHud() {
-            var cs = getComputedStyle(document.documentElement);
-            function up(el, v) { if (el) el.textContent = cs.getPropertyValue(v).trim().toUpperCase(); }
-            up(hudPaper, '--paper'); up(hudInk, '--ink'); up(hudSig, '--signal');
-        }
-
+        /* 主题切换：颜色实时跟随 CSS 令牌 */
         window.addEventListener('optionext:themechange', function () {
             var nt = readTheme();
             INK = nt.ink; SIG = nt.sig; PAPER = nt.paper;
             sprites = {};
             preheat();
-            syncHud();
         });
 
         /* ---------------- resize / 字体加载 ---------------- */
@@ -1073,10 +942,9 @@
                 build();
             }, 140);
         });
-        window.addEventListener('load', function () { calcQuiet(); syncHud(); });
+        window.addEventListener('load', function () { calcQuiet(); });
 
         build();
-        syncHud();
         if (reduced) {
             settleNow = true;
             render(100000);

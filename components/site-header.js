@@ -95,7 +95,6 @@
         '<div class="sh-bar">' +
             '<a class="sh-brand" href="' + ROOT + 'index.html" aria-label="Optionext 药铺子 · 首页">' +
                 '<img alt="药铺子 Optionext" loading="eager">' +
-                '<span class="sh-tag">SYS <b>/</b> DOT-MATRIX 02</span>' +
             '</a>' +
             '<nav class="sh-nav" aria-label="主导航"></nav>' +
             '<button class="sh-toggle" type="button" aria-label="切换到暗色模式" aria-pressed="false" title="切换另一半">' + ICON + '</button>' +

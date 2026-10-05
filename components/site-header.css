@@ -98,19 +98,6 @@
     height: 26px;
     width: auto;
 }
-.sh-brand .sh-tag {
-    font-family: var(--sh-font-mono);
-    font-size: 10px;
-    letter-spacing: .16em;
-    color: var(--sh-ink-45);
-    padding-left: 12px;
-    border-left: 1px dotted var(--sh-ink-25);
-    white-space: nowrap;
-}
-.sh-brand .sh-tag b {
-    color: var(--sh-signal);
-    font-weight: 500;
-}
 
 /* ---------------- 导航 ---------------- */
 .sh-nav {
@@ -261,7 +248,6 @@
     .sh-nav { display: none; }
     .sh-burger { display: inline-flex; }
     .sh-mobile { display: flex; }
-    .sh-brand .sh-tag { display: none; }
     .sh-toggle { margin-left: 0; }
 }
 
