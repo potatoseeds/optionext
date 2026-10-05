@@ -147,6 +147,7 @@
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
         root.setAttribute('data-dark', dark ? '1' : '0');
         logoImg.src = dark ? URL_LOGO_DARK : URL_LOGO_LIGHT;
+        toggle.setAttribute('data-icon', dark ? 'sun' : 'moon');
         toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
         toggle.setAttribute('aria-label', dark ? '切换到明色模式' : '切换到暗色模式');
     }

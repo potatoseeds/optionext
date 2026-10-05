@@ -166,18 +166,28 @@
     transition: background .3s var(--sh-ease), border-color .3s var(--sh-ease),
                 box-shadow .3s var(--sh-ease), transform .3s var(--sh-ease);
 }
-.sh-toggle svg {
+.sh-icon {
+    position: relative;
+    display: inline-flex;
     width: 20px; height: 20px;
-    transition: transform .7s var(--sh-ease);
-    transform: rotate(0deg);
 }
+.sh-icon svg {
+    position: absolute;
+    inset: 0;
+    width: 20px; height: 20px;
+    transition: opacity .38s var(--sh-ease), transform .5s var(--sh-ease);
+}
+/* 亮色：月亮在位，太阳藏于旋转位；暗色（data-icon=sun）互换 */
+.sh-ic-moon { opacity: 1; transform: rotate(0) scale(1); }
+.sh-ic-sun  { opacity: 0; transform: rotate(-90deg) scale(.55); }
+.sh-toggle[data-icon="sun"] .sh-ic-moon { opacity: 0; transform: rotate(90deg) scale(.55); }
+.sh-toggle[data-icon="sun"] .sh-ic-sun  { opacity: 1; transform: rotate(0) scale(1); }
 .sh-toggle:hover {
     border-color: var(--sh-signal);
     box-shadow: 0 0 0 4px rgba(223, 59, 42, .12);
     transform: translateY(-1px);
 }
 .sh-toggle:active { transform: scale(.92); }
-.sh-root[data-dark="1"] .sh-toggle svg { transform: rotate(180deg); }
 
 /* ---------------- 移动端汉堡 ---------------- */
 .sh-burger {

@@ -194,22 +194,52 @@
         }
         .btn-ghost:active { letter-spacing: .16em; }
 
-        /* 底部滚动提示（抬高，避开悬浮导航） */
-        .scroll-hint {
-            position: absolute;
-            z-index: 4;
-            left: 50%;
-            bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
-            transform: translateX(-50%);
-            display: flex; flex-direction: column; align-items: center; gap: 7px;
-            color: var(--ink-45);
+        /* 日月主题切换：居中圆钮（明显月 · 暗显日） */
+        .theme-wrap {
+            display: flex;
+            justify-content: center;
+            margin-top: 26px;
             opacity: 0;
-            animation: rise .8s var(--ease-out) 2.35s forwards;
+            animation: rise .8s var(--ease-out) 2.15s forwards;
         }
-        .scroll-hint i {
-            width: 1px; height: 30px;
-            background: linear-gradient(var(--ink-45), transparent);
-            animation: drop 1.8s var(--ease-out) infinite;
+        .theme-toggle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid var(--ink-25);
+            background: rgba(var(--ink-rgb), .04);
+            color: var(--ink);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: border-color .3s var(--ease-out), box-shadow .3s var(--ease-out),
+                        transform .15s var(--ease-out);
+        }
+        .theme-toggle:active { transform: scale(.92); }
+        .theme-toggle:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+        @media (hover: hover) {
+            .theme-toggle:hover { border-color: var(--signal); box-shadow: 0 0 0 4px rgba(223, 59, 42, .12); }
+        }
+        .tt-icon { position: relative; display: inline-flex; width: 20px; height: 20px; }
+        .tt-icon svg {
+            position: absolute;
+            inset: 0;
+            width: 20px; height: 20px;
+            transition: opacity .38s var(--ease-out), transform .5s var(--ease-out);
+        }
+        .tt-moon { opacity: 1; transform: rotate(0) scale(1); }
+        .tt-sun  { opacity: 0; transform: rotate(-90deg) scale(.55); }
+        .theme-toggle[data-icon="sun"] .tt-moon { opacity: 0; transform: rotate(90deg) scale(.55); }
+        .theme-toggle[data-icon="sun"] .tt-sun  { opacity: 1; transform: rotate(0) scale(1); }
+
+        /* 圆形扩散期间冻结一切过渡，并接管 View Transition 裁剪层 */
+        .theme-vt *, .theme-vt *::before, .theme-vt *::after { transition: none !important; }
+        @media (prefers-reduced-motion: no-preference) {
+            ::view-transition-old(root) { animation: none; z-index: 1; }
+            ::view-transition-new(root) { animation: none; z-index: 9999; }
         }
 
         /* ============================================================
@@ -291,12 +321,6 @@
         @keyframes lineUp {
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes drop {
-            0% { transform: scaleY(0); transform-origin: top; }
-            45% { transform: scaleY(1); transform-origin: top; }
-            46% { transform-origin: bottom; }
-            100% { transform: scaleY(0); transform-origin: bottom; }
-        }
 
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -304,7 +328,7 @@
                 animation-iteration-count: 1 !important;
                 transition-duration: .001ms !important;
             }
-            .lead, .actions, .scroll-hint { opacity: 1 !important; }
+            .lead, .actions, .theme-wrap { opacity: 1 !important; }
             h1 .line > span { opacity: 1 !important; transform: none !important; }
         }
     </style>
@@ -332,12 +356,23 @@
                         </a>
                         <a class="btn-ghost mono" href="#">联系我们</a>
                     </div>
-                </div>
-            </div>
 
-            <div class="scroll-hint mono">
-                <span>下滑</span>
-                <i aria-hidden="true"></i>
+                    <div class="theme-wrap">
+                        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">
+                            <span class="tt-icon">
+                                <svg class="tt-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+                                          stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <svg class="tt-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/>
+                                    <path d="M12 2.6v2.3M12 19.1v2.3M2.6 12h2.3M19.1 12h2.3M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"
+                                          stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -455,7 +490,7 @@
         var started = performance.now();
         var settleNow = false;       // resize / reduced-motion 直接呈现完成态
 
-        var mouse = { x: -9999, y: -9999, active: false };
+        var mouse = { x: -9999, y: -9999, active: false, lm: -1e9 };
         var clickSweepAt = -1;       // 点中图标：细字符带重扫起点
 
         /* ---------------- 随机（种子） ---------------- */
@@ -643,6 +678,7 @@
             mouse.x = e.clientX - r.left;
             mouse.y = e.clientY - r.top;
             mouse.active = true;
+            mouse.lm = performance.now() - started;
         });
         heroEl.addEventListener('pointerleave', function () { mouse.active = false; });
         heroEl.addEventListener('pointercancel', function () { mouse.active = false; });
@@ -724,6 +760,9 @@
                     idleBase = -40 + sweepEase(cyc / 1400) * (cssH + 80);
                 }
             }
+
+            /* 指针静止自动消退：停住约半秒后斥力衰减，避免点击后留下永久空洞 */
+            var moveF = mouse.active && !reduced ? clamp(1 - (t - mouse.lm - 480) / 420, 0, 1) : 0;
 
             for (var i = 0; i < cells.length; i++) {
                 var c = cells[i];
@@ -864,21 +903,21 @@
                     }
                 }
 
-                /* ---- 触压斥力（细条状划过的加强版） ---- */
+                /* ---- 触压斥力（细条状划过的加强版，静止即消退） ---- */
                 var repelX = 0, repelY = 0;
                 c.near = false;
-                if (mouse.active && !reduced) {
+                if (moveF > 0) {
                     var mdx = x - mouse.x, mdy = y - mouse.y;
                     var md = Math.hypot(mdx, mdy);
                     if (md < 120 && md > .01) {
                         var f = 1 - md / 120;
-                        var force = (c.kind === 3 ? 3 : c.kind === 2 ? 7 : 16) * f;
+                        var force = (c.kind === 3 ? 3 : c.kind === 2 ? 7 : 16) * f * moveF;
                         repelX = mdx / md * force;
                         repelY = mdy / md * force;
                         c.near = c.kind === 0;
-                        if (c.near && rnd(c.seed + Math.floor(t / 80)) > .45) {
+                        if (c.near && moveF > .12 && rnd(c.seed + Math.floor(t / 80)) > .45) {
                             glyph = pick(SCRAMBLE, c.seed + Math.floor(t / 80));
-                            alpha = Math.max(alpha, .3 + .35 * f);
+                            alpha = Math.max(alpha, (.3 + .35 * f) * moveF);
                         }
                     }
                 }
@@ -961,6 +1000,74 @@
         } else {
             requestAnimationFrame(loop);
         }
+    })();
+    </script>
+
+    <script>
+    /* ============================================================
+       日月主题切换：与桌面端同一逻辑
+       localStorage 落地 · 以按钮为圆心 View Transition 圆形扩散
+       · 矩阵通过 optionext:themechange 事件同步变色
+       ============================================================ */
+    (function () {
+        var KEY = 'optionext-theme';
+        var btn = document.getElementById('themeToggle');
+
+        function cur() { return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'; }
+
+        function sync() {
+            var dark = cur() === 'dark';
+            btn.setAttribute('data-icon', dark ? 'sun' : 'moon');
+            btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+            btn.setAttribute('aria-label', dark ? '切换到明色模式' : '切换到暗色模式');
+        }
+
+        function commit(next) {
+            document.documentElement.dataset.theme = next;
+            try { localStorage.setItem(KEY, next); } catch (e) {}
+            sync();
+            window.dispatchEvent(new CustomEvent('optionext:themechange', { detail: { theme: next } }));
+        }
+
+        sync();
+        btn.addEventListener('click', function () {
+            var next = cur() === 'dark' ? 'light' : 'dark';
+            var rmReduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            if (rmReduce || typeof document.startViewTransition !== 'function') {
+                commit(next);
+                return;
+            }
+
+            var r = btn.getBoundingClientRect();
+            var x = r.left + r.width / 2, y = r.top + r.height / 2;
+
+            document.documentElement.classList.add('theme-vt');
+            var tr = document.startViewTransition(function () { commit(next); });
+            var clearVt = function () { document.documentElement.classList.remove('theme-vt'); };
+            tr.finished.then(clearVt, clearVt);
+
+            tr.ready.then(function () {
+                var maxR = Math.hypot(
+                    Math.max(x, window.innerWidth - x),
+                    Math.max(y, window.innerHeight - y)
+                );
+                document.documentElement.animate(
+                    {
+                        clipPath: [
+                            'circle(0px at ' + x + 'px ' + y + 'px)',
+                            'circle(' + maxR + 'px at ' + x + 'px ' + y + 'px)'
+                        ]
+                    },
+                    {
+                        duration: 720,
+                        easing: 'cubic-bezier(.22, 1, .36, 1)',
+                        fill: 'forwards',
+                        pseudoElement: '::view-transition-new(root)'
+                    }
+                );
+            }).catch(function () {});
+        });
     })();
     </script>
 

@@ -177,23 +177,6 @@
         }
         .btn-ghost:hover { border-bottom-style: solid; border-color: var(--ink); letter-spacing: .16em; }
 
-        /* 底部滚动提示 */
-        .scroll-hint {
-            position: absolute;
-            z-index: 4;
-            left: 50%; bottom: 30px;
-            transform: translateX(-50%);
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
-            color: var(--ink-45);
-            opacity: 0;
-            animation: rise .8s var(--ease-out) 2.35s forwards;
-        }
-        .scroll-hint i {
-            width: 1px; height: 34px;
-            background: linear-gradient(var(--ink-45), transparent);
-            animation: drop 1.8s var(--ease-out) infinite;
-        }
-
         /* ============================================================
            点阵色带（halftone 分隔）
            ============================================================ */
@@ -280,12 +263,6 @@
         @keyframes lineUp {
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes drop {
-            0% { transform: scaleY(0); transform-origin: top; }
-            45% { transform: scaleY(1); transform-origin: top; }
-            46% { transform-origin: bottom; }
-            100% { transform: scaleY(0); transform-origin: bottom; }
-        }
 
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -293,7 +270,7 @@
                 animation-iteration-count: 1 !important;
                 transition-duration: .001ms !important;
             }
-            .lead, .actions, .scroll-hint { opacity: 1 !important; }
+            .lead, .actions { opacity: 1 !important; }
             h1 .line > span { opacity: 1 !important; transform: none !important; }
         }
 
@@ -327,11 +304,6 @@
                     </a>
                     <a class="btn-ghost mono" href="#">联系我们</a>
                 </div>
-            </div>
-
-            <div class="scroll-hint mono">
-                <span>SCROLL</span>
-                <i aria-hidden="true"></i>
             </div>
         </section>
 
@@ -450,7 +422,7 @@
         var started = performance.now();
         var settleNow = false;       // resize / reduced-motion 直接呈现完成态
 
-        var mouse = { x: -9999, y: -9999, active: false };
+        var mouse = { x: -9999, y: -9999, active: false, lm: -1e9 };
         var clickSweepAt = -1;       // 点中图标：细字符带重扫起点
 
         /* ---------------- 随机（种子） ---------------- */
@@ -638,6 +610,7 @@
             mouse.x = e.clientX - r.left;
             mouse.y = e.clientY - r.top;
             mouse.active = true;
+            mouse.lm = performance.now() - started;
         });
         heroEl.addEventListener('pointerleave', function () { mouse.active = false; });
         heroEl.addEventListener('pointercancel', function () { mouse.active = false; });
@@ -719,6 +692,9 @@
                     idleBase = -40 + sweepEase(cyc / 1400) * (cssW + 80);
                 }
             }
+
+            /* 鼠标静止自动消退：停住约半秒后斥力衰减，避免点击后留下永久空洞 */
+            var moveF = mouse.active && !reduced ? clamp(1 - (t - mouse.lm - 480) / 420, 0, 1) : 0;
 
             for (var i = 0; i < cells.length; i++) {
                 var c = cells[i];
@@ -859,21 +835,21 @@
                     }
                 }
 
-                /* ---- 鼠标斥力（细条状鼠标划过的加强版） ---- */
+                /* ---- 鼠标斥力（细条状鼠标划过的加强版，静止即消退） ---- */
                 var repelX = 0, repelY = 0;
                 c.near = false;
-                if (mouse.active && !reduced) {
+                if (moveF > 0) {
                     var mdx = x - mouse.x, mdy = y - mouse.y;
                     var md = Math.hypot(mdx, mdy);
                     if (md < 120 && md > .01) {
                         var f = 1 - md / 120;
-                        var force = (c.kind === 3 ? 3 : c.kind === 2 ? 7 : 16) * f;
+                        var force = (c.kind === 3 ? 3 : c.kind === 2 ? 7 : 16) * f * moveF;
                         repelX = mdx / md * force;
                         repelY = mdy / md * force;
                         c.near = c.kind === 0;
-                        if (c.near && rnd(c.seed + Math.floor(t / 80)) > .45) {
+                        if (c.near && moveF > .12 && rnd(c.seed + Math.floor(t / 80)) > .45) {
                             glyph = pick(SCRAMBLE, c.seed + Math.floor(t / 80));
-                            alpha = Math.max(alpha, .3 + .35 * f);
+                            alpha = Math.max(alpha, (.3 + .35 * f) * moveF);
                         }
                     }
                 }
