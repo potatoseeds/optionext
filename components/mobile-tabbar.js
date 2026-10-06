@@ -10,7 +10,8 @@
    因此 css / 导航链接在 GitHub Pages 任意深度子页面中都能正确解析，
    无需关心页面所在层级，也无需写死仓库名。
 
-   形态：底部固定 · 毛玻璃全胶囊 · 纯文字双项（无 logo）+ 右侧日月切换钮。
+   形态：底部固定 · 液态玻璃两件浮件并排——
+         左侧圆润小卡片（纯中文双链接，无 logo）· 右侧独立圆形日月切换钮。
    主题：与 site-header 共用 localStorage 键 optionext-theme，
    既负责尽早落地初始主题，也内聚明 / 暗切换（以按钮为圆心圆形扩散），
    组件样式随 <html data-theme> 自动响应。
@@ -89,18 +90,20 @@
                 'stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
         '</svg>';
 
-    /* ---------- 构建 DOM ---------- */
+    /* ---------- 构建 DOM：左卡片（双链接）· 右圆钮（日夜切换） ---------- */
     var root = document.createElement('div');
     root.className = 'mt-root';
     root.innerHTML =
-        '<nav class="mt-bar" aria-label="底部导航">' +
-            '<i class="mt-sep" aria-hidden="true"></i>' +
-            '<button class="mt-theme" type="button" aria-pressed="false">' +
-                '<span class="mt-tt">' + ICON_MOON + ICON_SUN + '</span>' +
-            '</button>' +
-        '</nav>';
+        '<nav class="mt-card" aria-label="底部导航">' +
+            '<i class="mt-sheen" aria-hidden="true"></i>' +
+        '</nav>' +
+        '<button class="mt-theme" type="button" aria-pressed="false">' +
+            '<i class="mt-sheen" aria-hidden="true"></i>' +
+            '<span class="mt-tt">' + ICON_MOON + ICON_SUN + '</span>' +
+        '</button>';
 
-    var bar = root.querySelector('.mt-bar');
+    var card = root.querySelector('.mt-card');
+    var themeBtn = root.querySelector('.mt-theme');
 
     /* index.html / mobile.html 都归一化为目录，保证首页项高亮 */
     function norm(p) { return p.replace(/(index|mobile)\.html$/i, ''); }
@@ -112,7 +115,6 @@
         return tp === here || (tp.length > 1 && here.indexOf(tp) === 0);
     }
 
-    var sep = bar.querySelector('.mt-sep');
     NAV.forEach(function (item) {
         var a = document.createElement('a');
         a.className = 'mt-item';
@@ -123,7 +125,7 @@
         }
         a.innerHTML =
             '<span class="mt-cn">' + item.cn + '</span>';
-        bar.insertBefore(a, sep);
+        card.appendChild(a);
     });
 
     /* ============================================================
@@ -131,8 +133,6 @@
        localStorage 落地 · 以切换钮为圆心 View Transition 圆形扩散
        · 矩阵通过 optionext:themechange 事件同步变色
        ============================================================ */
-    var themeBtn = bar.querySelector('.mt-theme');
-
     function curTheme() {
         return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
     }
@@ -188,6 +188,79 @@
             );
         }).catch(function () {});
     });
+
+    /* ============================================================
+       液态玻璃交互：指针微光 + 橡皮筋拽开 + 松手弹性复位
+       卡片与圆钮各自独立响应；拖拽后松手的 click 被吞掉，点按不受影响
+       ============================================================ */
+    (function () {
+        var reduced = window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function bind(glass, maxX, maxY) {
+            var down = false, moved = false, armed = false;
+            var sx = 0, sy = 0, raf = 0;
+
+            function lightAt(x, y) {
+                var r = glass.getBoundingClientRect();
+                glass.style.setProperty('--gx', ((x - r.left) / r.width * 100) + '%');
+                glass.style.setProperty('--gy', ((y - r.top) / r.height * 100) + '%');
+            }
+            function pull(mx, my) {
+                if (raf || reduced) return;
+                raf = requestAnimationFrame(function () {
+                    raf = 0;
+                    var dx = Math.max(-maxX, Math.min(maxX, mx * 0.42));
+                    var dy = Math.max(-maxY, Math.min(maxY, my * 0.42));
+                    glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
+                    glass.style.setProperty('--dy', dy.toFixed(2) + 'px');
+                    glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
+                });
+            }
+            function release() {
+                if (!down) return;
+                down = false;
+                armed = moved;
+                moved = false;
+                glass.classList.remove('mt-press', 'mt-drag');
+                glass.style.removeProperty('--dx');
+                glass.style.removeProperty('--dy');
+                glass.style.removeProperty('--rot');
+                if (raf) { cancelAnimationFrame(raf); raf = 0; }
+                setTimeout(function () { armed = false; }, 300);
+            }
+
+            glass.addEventListener('pointerdown', function (e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                down = true; moved = false;
+                sx = e.clientX; sy = e.clientY;
+                lightAt(e.clientX, e.clientY);
+                glass.classList.add('mt-press');
+            });
+            window.addEventListener('pointermove', function (e) {
+                if (!down) return;
+                lightAt(e.clientX, e.clientY);
+                var mx = e.clientX - sx, my = e.clientY - sy;
+                if (!moved && Math.hypot(mx, my) > 4) {
+                    moved = true;
+                    if (!reduced) glass.classList.add('mt-drag');
+                }
+                if (moved) pull(mx, my);
+            });
+            window.addEventListener('pointerup', release);
+            window.addEventListener('pointercancel', release);
+            glass.addEventListener('click', function (e) {
+                if (armed) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    armed = false;
+                }
+            }, true);
+        }
+
+        bind(card, 14, 10);
+        bind(themeBtn, 8, 8);
+    })();
 
     /* ---------- 挂载 ---------- */
     function mount() { document.body.appendChild(root); }

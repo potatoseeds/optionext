@@ -101,6 +101,7 @@
     root.className = 'sh-root';
     root.innerHTML =
         '<div class="sh-bar">' +
+            '<i class="sh-sheen" aria-hidden="true"></i>' +
             '<a class="sh-brand" href="' + ROOT + 'index.html" aria-label="Optionext 药铺子 · 首页">' +
                 '<img alt="药铺子 Optionext" loading="eager">' +
             '</a>' +
@@ -233,6 +234,85 @@
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
+
+    /* ============================================================
+       液态玻璃交互：指针微光 + 橡皮筋拽开 + 松手弹性复位
+       · --gx/--gy：指针在玻璃表面的相对坐标（微光点）
+       · --dx/--dy/--rot：按下拖动时的橡皮筋位移（阻力 + 位移上限）
+       · 松手即移除变量，CSS 以 --sh-spring 回弹；普通点按不受影响
+       ============================================================ */
+    (function () {
+        var glass = root.querySelector('.sh-bar');
+        var reduced = window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var hoverable = window.matchMedia &&
+            window.matchMedia('(hover: hover)').matches;
+
+        var down = false, moved = false, suppressClick = false, armed = false;
+        var sx = 0, sy = 0, raf = 0;
+
+        function lightAt(x, y) {
+            var r = glass.getBoundingClientRect();
+            glass.style.setProperty('--gx', ((x - r.left) / r.width * 100) + '%');
+            glass.style.setProperty('--gy', ((y - r.top) / r.height * 100) + '%');
+        }
+        function pull(mx, my) {
+            if (raf || reduced) return;
+            raf = requestAnimationFrame(function () {
+                raf = 0;
+                var dx = Math.max(-14, Math.min(14, mx * 0.42));
+                var dy = Math.max(-10, Math.min(10, my * 0.42));
+                glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
+                glass.style.setProperty('--dy', dy.toFixed(2) + 'px');
+                glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
+            });
+        }
+        function release() {
+            if (!down) return;
+            down = false;
+            suppressClick = moved;
+            armed = suppressClick;
+            moved = false;
+            glass.classList.remove('sh-press', 'sh-drag');
+            glass.style.removeProperty('--dx');
+            glass.style.removeProperty('--dy');
+            glass.style.removeProperty('--rot');
+            if (raf) { cancelAnimationFrame(raf); raf = 0; }
+            // 松手未在玻璃上触发 click 时，自动解除拦截标记
+            setTimeout(function () { armed = false; }, 300);
+        }
+
+        glass.addEventListener('pointerdown', function (e) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            down = true; moved = false;
+            sx = e.clientX; sy = e.clientY;
+            lightAt(e.clientX, e.clientY);
+            glass.classList.add('sh-press');
+        });
+        glass.addEventListener('pointermove', function (e) {
+            if (!down && hoverable) lightAt(e.clientX, e.clientY);
+        });
+        window.addEventListener('pointermove', function (e) {
+            if (!down) return;
+            lightAt(e.clientX, e.clientY);
+            var mx = e.clientX - sx, my = e.clientY - sy;
+            if (!moved && Math.hypot(mx, my) > 4) {
+                moved = true;
+                if (!reduced) glass.classList.add('sh-drag');
+            }
+            if (moved) pull(mx, my);
+        });
+        window.addEventListener('pointerup', release);
+        window.addEventListener('pointercancel', release);
+        // 拖拽后松手的 click 属误触：捕获阶段吞掉；普通点按放行
+        glass.addEventListener('click', function (e) {
+            if (armed) {
+                e.stopPropagation();
+                e.preventDefault();
+                armed = false;
+            }
+        }, true);
+    })();
 
     /* ---------- 挂载 ---------- */
     function mount() {

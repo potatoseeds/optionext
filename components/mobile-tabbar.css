@@ -1,40 +1,75 @@
 /* ============================================================
    OPTIONEXT · 移动端底部导航组件 mobile-tabbar
-   底部圆角矩形 · 毛玻璃 · 双主题（明 / 暗）· 纯文字双项
+   液态玻璃 · 双主题（明 / 暗）· 纯中文双项
+   形态：左侧独立圆润小卡片（两个链接按钮）
+         右侧独立圆形日夜切换钮，两件玻璃浮件并排
    组件样式独立作用域 .mt-* ，可被任意深度页面引用
    ============================================================ */
 
 :root {
-    --mt-paper-solid: rgba(244, 243, 239, .62);
-    --mt-paper-solid2: rgba(244, 243, 239, .88);
-    --mt-edge: rgba(20, 19, 16, .1);
+    --mt-paper-solid2: rgba(244, 243, 239, .88);   /* 无 backdrop-filter 兜底 */
+    --mt-edge: rgba(20, 19, 16, .09);
     --mt-shadow: rgba(20, 19, 16, .08);
-    --mt-shadow2: rgba(20, 19, 16, .13);
+    --mt-shadow2: rgba(20, 19, 16, .16);
     --mt-ink: #141310;
     --mt-ink-70: rgba(20, 19, 16, .72);
     --mt-ink-45: rgba(20, 19, 16, .42);
     --mt-ink-25: rgba(20, 19, 16, .2);
     --mt-signal: #df3b2a;
-    --mt-highlight: rgba(255, 255, 255, .65);
+    --mt-highlight: rgba(255, 255, 255, .75);
     --mt-hover: rgba(20, 19, 16, .05);
+    /* —— 液态玻璃材质令牌（亮色）—— */
+    --mt-tint: rgba(244, 243, 239, .28);
+    --mt-sheen-top: rgba(255, 255, 255, .52);      /* 顶部菲涅耳高光 */
+    --mt-sheen-mid: rgba(255, 255, 255, .10);
+    --mt-sheen-bot: rgba(255, 255, 255, .20);
+    --mt-inner: rgba(255, 255, 255, .14);
+    --mt-underglow: rgba(20, 19, 16, .06);
+    --mt-pill-top: rgba(255, 255, 255, .55);
+    --mt-pill-bot: rgba(255, 255, 255, .08);
+    --mt-pill-line: rgba(255, 255, 255, .6);
+    --mt-glow-hot: rgba(255, 255, 255, .95);       /* 指腹触压微光 */
+    --mt-glow-soft: rgba(224, 236, 255, .5);
+    --mt-rim: linear-gradient(140deg,
+        rgba(255, 255, 255, .95) 0%,
+        rgba(255, 255, 255, .18) 26%,
+        rgba(20, 19, 16, .10) 58%,
+        rgba(255, 255, 255, .6) 100%);
     --mt-font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
     --mt-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
     --mt-ease: cubic-bezier(.22, 1, .36, 1);
+    --mt-spring: cubic-bezier(.34, 1.56, .42, 1);  /* 拽开后的弹性复位 */
 }
 
 :root[data-theme="dark"] {
-    --mt-paper-solid: rgba(17, 15, 13, .55);
     --mt-paper-solid2: rgba(17, 15, 13, .86);
     --mt-edge: rgba(233, 231, 225, .12);
     --mt-shadow: rgba(0, 0, 0, .5);
-    --mt-shadow2: rgba(0, 0, 0, .62);
+    --mt-shadow2: rgba(0, 0, 0, .66);
     --mt-ink: #e9e7e1;
     --mt-ink-70: rgba(233, 231, 225, .72);
     --mt-ink-45: rgba(233, 231, 225, .45);
     --mt-ink-25: rgba(233, 231, 225, .22);
     --mt-signal: #ef4d3a;
-    --mt-highlight: rgba(255, 255, 255, .08);
+    --mt-highlight: rgba(255, 255, 255, .28);
     --mt-hover: rgba(233, 231, 225, .08);
+    /* —— 液态玻璃材质令牌（暗色）—— */
+    --mt-tint: rgba(18, 16, 13, .34);
+    --mt-sheen-top: rgba(255, 255, 255, .17);
+    --mt-sheen-mid: rgba(255, 255, 255, .03);
+    --mt-sheen-bot: rgba(255, 255, 255, .07);
+    --mt-inner: rgba(255, 255, 255, .05);
+    --mt-underglow: rgba(0, 0, 0, .45);
+    --mt-pill-top: rgba(255, 255, 255, .14);
+    --mt-pill-bot: rgba(255, 255, 255, .03);
+    --mt-pill-line: rgba(255, 255, 255, .12);
+    --mt-glow-hot: rgba(255, 255, 255, .55);
+    --mt-glow-soft: rgba(190, 210, 255, .16);
+    --mt-rim: linear-gradient(140deg,
+        rgba(255, 255, 255, .6) 0%,
+        rgba(255, 255, 255, .12) 28%,
+        rgba(0, 0, 0, .5) 62%,
+        rgba(255, 255, 255, .3) 100%);
 }
 
 .mt-root {
@@ -43,7 +78,10 @@
     bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
     transform: translateX(-50%);
     z-index: 1000;
-    width: auto;                              /* 缩短：随内容收窄，不再撑满 */
+    /* 两件玻璃浮件并排：左卡片 / 右圆钮，间距 10px */
+    display: flex;
+    align-items: center;
+    gap: 10px;
     max-width: calc(100vw - 24px);
     font-family: var(--mt-font-sans);
     animation: mt-rise .7s var(--mt-ease) .1s both;
@@ -54,36 +92,114 @@
     to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
-.mt-bar {
+/* ============================================================
+   液态玻璃材质（卡片 + 圆钮共用）
+   ============================================================ */
+.mt-card,
+.mt-theme {
+    position: relative;
+    border: 1px solid var(--mt-edge);
+    background:
+        linear-gradient(180deg,
+            var(--mt-sheen-top) 0%,
+            var(--mt-sheen-mid) 45%,
+            var(--mt-sheen-bot) 100%),
+        var(--mt-tint);
+    -webkit-backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
+            backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
+    box-shadow:
+        0 16px 40px -12px var(--mt-shadow2),
+        0 2px 8px var(--mt-shadow),
+        inset 0 1px 0 var(--mt-highlight),
+        inset 0 -1px 2px var(--mt-underglow),
+        inset 0 0 18px var(--mt-inner);
+    /* 橡皮筋拽拉（--dx/--dy/--rot 由指针写入），松手 --mt-spring 回弹 */
+    transform:
+        translate3d(var(--dx, 0px), var(--dy, 0px), 0)
+        rotate(var(--rot, 0deg))
+        scale(var(--sc, 1));
+    transition:
+        background .4s var(--mt-ease),
+        box-shadow .4s var(--mt-ease),
+        border-color .4s var(--mt-ease),
+        transform .62s var(--mt-spring);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+    .mt-card, .mt-theme { background: var(--mt-paper-solid2); }
+}
+
+/* 边缘折射描边（1px 渐变光环，蒙版切出环带） */
+.mt-card::after,
+.mt-theme::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: var(--mt-rim);
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+            mask-composite: exclude;
+}
+
+/* 指针微光层（--gx/--gy 跟随指腹 / 鼠标） */
+.mt-sheen {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background:
+        radial-gradient(110px circle at var(--gx, 50%) var(--gy, 50%),
+            var(--mt-glow-hot), transparent 62%),
+        radial-gradient(280px circle at var(--gx, 50%) var(--gy, 50%),
+            var(--mt-glow-soft), transparent 70%);
+    transition: opacity .3s var(--mt-ease);
+}
+@media (hover: hover) {
+    .mt-card:hover .mt-sheen,
+    .mt-theme:hover .mt-sheen { opacity: .4; }
+}
+.mt-card.mt-press .mt-sheen,
+.mt-theme.mt-press .mt-sheen { opacity: 1; }
+.mt-card.mt-press { --sc: .97; }
+.mt-theme.mt-press { --sc: .9; }
+/* 拖拽进行中冻结过渡，完全跟随手指 */
+.mt-card.mt-drag, .mt-card.mt-drag *,
+.mt-theme.mt-drag, .mt-theme.mt-drag * { transition: none !important; }
+
+/* ---------------- 左侧小卡片：两个链接按钮 ---------------- */
+.mt-card {
+    flex: none;
     display: flex;
     align-items: center;
     gap: 2px;
     padding: 5px;
-    border-radius: 999px;                     /* 全胶囊：更圆润 */
-    background: var(--mt-paper-solid);
-    -webkit-backdrop-filter: blur(16px) saturate(1.5);
-            backdrop-filter: blur(16px) saturate(1.5);
-    border: 1px solid var(--mt-edge);
-    box-shadow:
-        0 10px 34px var(--mt-shadow),
-        0 1px 0 var(--mt-highlight) inset;
-    transition: background .4s var(--mt-ease), box-shadow .4s var(--mt-ease),
-                border-color .4s var(--mt-ease);
-}
-@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
-    .mt-bar { background: var(--mt-paper-solid2); }
+    border-radius: 999px;
 }
 
-/* ---------------- 导航项（纯文字：左一项 / 右一项） ---------------- */
 .mt-item {
     position: relative;
-    flex: none;                               /* 内容宽度：整体变短 */
+    z-index: 1;
+    flex: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 11px 16px 10px;
+    padding: 10px 18px;
     border-radius: 999px;
     text-decoration: none;
     color: var(--mt-ink-70);
@@ -91,7 +207,7 @@
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition: color .25s var(--mt-ease), background .25s var(--mt-ease),
-                transform .15s var(--mt-ease);
+                box-shadow .25s var(--mt-ease), transform .15s var(--mt-ease);
 }
 .mt-cn {
     font-size: 14.5px;
@@ -116,10 +232,17 @@
 }
 
 @media (hover: hover) {
-    .mt-item:hover { color: var(--mt-ink); background: var(--mt-hover); }
+    .mt-item:hover {
+        color: var(--mt-ink);
+        background: linear-gradient(180deg, var(--mt-pill-top), var(--mt-pill-bot));
+        box-shadow: inset 0 1px 0 var(--mt-pill-line);
+    }
     .mt-item:hover::after { opacity: 1; transform: translateX(-50%) scale(1); }
 }
-.mt-item:active { transform: scale(.96); background: var(--mt-hover); }
+.mt-item:active {
+    transform: scale(.96);
+    background: linear-gradient(180deg, var(--mt-pill-top), var(--mt-pill-bot));
+}
 .mt-item:focus-visible {
     outline: 2px solid var(--mt-signal);
     outline-offset: 3px;
@@ -128,34 +251,26 @@
 .mt-item.mt-active { color: var(--mt-ink); }
 .mt-item.mt-active::after { opacity: 1; transform: translateX(-50%) scale(1); }
 
-/* ---------------- 分隔线：导航项 / 主题钮 ---------------- */
-.mt-sep {
-    flex: none;
-    width: 1px;
-    height: 20px;
-    margin: 0 5px;
-    background: var(--mt-ink-25);
-}
-
-/* ---------------- 右侧日月切换圆钮（与栏平齐、整合进胶囊） ---------------- */
+/* ---------------- 右侧独立圆形日夜切换钮 ---------------- */
 .mt-theme {
     flex: none;
-    width: 38px;
-    height: 38px;
+    width: 48px;
+    height: 48px;
     padding: 0;
-    border: none;
     border-radius: 50%;
-    background: transparent;
     color: var(--mt-ink-70);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: background .25s var(--mt-ease), color .25s var(--mt-ease),
-                transform .15s var(--mt-ease);
+    overflow: hidden;
 }
-.mt-tt { position: relative; display: inline-flex; width: 19px; height: 19px; }
+.mt-tt {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    width: 19px; height: 19px;
+}
 .mt-tt svg {
     position: absolute;
     inset: 0;
@@ -169,9 +284,8 @@
 .mt-theme[data-icon="sun"] .mt-sun  { opacity: 1; transform: rotate(0) scale(1); }
 
 @media (hover: hover) {
-    .mt-theme:hover { color: var(--mt-ink); background: var(--mt-hover); }
+    .mt-theme:hover { color: var(--mt-ink); }
 }
-.mt-theme:active { transform: scale(.9); }
 .mt-theme:focus-visible { outline: 2px solid var(--mt-signal); outline-offset: 2px; }
 
 /* 圆形扩散期间冻结一切过渡，并接管 View Transition 裁剪层 */
@@ -182,8 +296,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .mt-root, .mt-bar, .mt-item, .mt-item::after, .mt-theme, .mt-tt svg {
+    .mt-root, .mt-card, .mt-theme, .mt-sheen, .mt-item, .mt-item::after, .mt-tt svg {
         animation: none !important;
         transition-duration: .001ms !important;
     }
+    .mt-card, .mt-theme { transform: none !important; }
 }

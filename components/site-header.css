@@ -1,42 +1,81 @@
 /* ============================================================
    OPTIONEXT · 站点页眉组件 site-header
-   圆角矩形 · 毛玻璃 · 双主题（明 / 暗）
+   圆角矩形 · 液态玻璃（模糊 / 折射边缘 / 指针微光 / 拽拉回弹）· 双主题
    组件样式独立作用域 .sh-* ，可被任意深度页面引用
    ============================================================ */
 
 :root {
     --sh-paper: #f4f3ef;
-    --sh-paper-solid: rgba(244, 243, 239, .62);
-    --sh-paper-solid2: rgba(244, 243, 239, .88);
-    --sh-edge: rgba(20, 19, 16, .1);
+    --sh-paper-solid2: rgba(244, 243, 239, .88);   /* 无 backdrop-filter 兜底 */
+    --sh-edge: rgba(20, 19, 16, .09);
     --sh-shadow: rgba(20, 19, 16, .08);
-    --sh-shadow2: rgba(20, 19, 16, .13);
+    --sh-shadow2: rgba(20, 19, 16, .16);
     --sh-ink: #141310;
     --sh-ink-70: rgba(20, 19, 16, .72);
     --sh-ink-45: rgba(20, 19, 16, .42);
     --sh-ink-25: rgba(20, 19, 16, .2);
     --sh-signal: #df3b2a;
-    --sh-highlight: rgba(255, 255, 255, .65);
+    --sh-highlight: rgba(255, 255, 255, .75);
     --sh-hover: rgba(20, 19, 16, .05);
+    /* —— 液态玻璃材质令牌（亮色）—— */
+    --sh-tint: rgba(244, 243, 239, .28);           /* 玻璃主底色：低 alpha，让模糊透出来 */
+    --sh-tint-strong: rgba(244, 243, 239, .64);    /* 滚动态：更不透明以保证可读 */
+    --sh-sheen-top: rgba(255, 255, 255, .52);      /* 顶部菲涅耳高光 */
+    --sh-sheen-mid: rgba(255, 255, 255, .10);
+    --sh-sheen-bot: rgba(255, 255, 255, .20);
+    --sh-inner: rgba(255, 255, 255, .14);
+    --sh-underglow: rgba(20, 19, 16, .06);
+    --sh-ctrl: rgba(255, 255, 255, .28);           /* 嵌套控件（日夜钮） */
+    --sh-ctrl-edge: rgba(20, 19, 16, .12);
+    --sh-pill-top: rgba(255, 255, 255, .55);        /* 导航项悬停小药丸 */
+    --sh-pill-bot: rgba(255, 255, 255, .08);
+    --sh-pill-line: rgba(255, 255, 255, .6);
+    --sh-glow-hot: rgba(255, 255, 255, .95);        /* 指针触压微光 */
+    --sh-glow-soft: rgba(224, 236, 255, .5);
+    --sh-rim: linear-gradient(140deg,
+        rgba(255, 255, 255, .95) 0%,
+        rgba(255, 255, 255, .18) 26%,
+        rgba(20, 19, 16, .10) 58%,
+        rgba(255, 255, 255, .6) 100%);
     --sh-font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
     --sh-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
     --sh-ease: cubic-bezier(.22, 1, .36, 1);
+    --sh-spring: cubic-bezier(.34, 1.56, .42, 1);   /* 拽开后的弹性复位 */
 }
 
 :root[data-theme="dark"] {
     --sh-paper: #e9e7e1;
-    --sh-paper-solid: rgba(17, 15, 13, .55);
     --sh-paper-solid2: rgba(17, 15, 13, .86);
     --sh-edge: rgba(233, 231, 225, .12);
     --sh-shadow: rgba(0, 0, 0, .5);
-    --sh-shadow2: rgba(0, 0, 0, .62);
+    --sh-shadow2: rgba(0, 0, 0, .66);
     --sh-ink: #e9e7e1;
     --sh-ink-70: rgba(233, 231, 225, .72);
     --sh-ink-45: rgba(233, 231, 225, .45);
     --sh-ink-25: rgba(233, 231, 225, .22);
     --sh-signal: #ef4d3a;
-    --sh-highlight: rgba(255, 255, 255, .08);
+    --sh-highlight: rgba(255, 255, 255, .28);
     --sh-hover: rgba(233, 231, 225, .08);
+    /* —— 液态玻璃材质令牌（暗色）—— */
+    --sh-tint: rgba(18, 16, 13, .34);
+    --sh-tint-strong: rgba(18, 16, 13, .60);
+    --sh-sheen-top: rgba(255, 255, 255, .17);
+    --sh-sheen-mid: rgba(255, 255, 255, .03);
+    --sh-sheen-bot: rgba(255, 255, 255, .07);
+    --sh-inner: rgba(255, 255, 255, .05);
+    --sh-underglow: rgba(0, 0, 0, .45);
+    --sh-ctrl: rgba(255, 255, 255, .09);
+    --sh-ctrl-edge: rgba(233, 231, 225, .18);
+    --sh-pill-top: rgba(255, 255, 255, .14);
+    --sh-pill-bot: rgba(255, 255, 255, .03);
+    --sh-pill-line: rgba(255, 255, 255, .12);
+    --sh-glow-hot: rgba(255, 255, 255, .55);
+    --sh-glow-soft: rgba(190, 210, 255, .16);
+    --sh-rim: linear-gradient(140deg,
+        rgba(255, 255, 255, .6) 0%,
+        rgba(255, 255, 255, .12) 28%,
+        rgba(0, 0, 0, .5) 62%,
+        rgba(255, 255, 255, .3) 100%);
 }
 
 .sh-root {
@@ -56,30 +95,109 @@
 }
 
 .sh-bar {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 20px;
     padding: 8px 10px 8px 20px;
     border-radius: 18px;
-    background: var(--sh-paper-solid);
-    -webkit-backdrop-filter: blur(16px) saturate(1.5);
-            backdrop-filter: blur(16px) saturate(1.5);
+    /* 液态玻璃：纵向菲涅耳高光 + 低透明底色，模糊与饱和提升交给 backdrop-filter */
+    background:
+        linear-gradient(180deg,
+            var(--sh-sheen-top) 0%,
+            var(--sh-sheen-mid) 45%,
+            var(--sh-sheen-bot) 100%),
+        var(--sh-tint);
+    -webkit-backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
+            backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
     border: 1px solid var(--sh-edge);
     box-shadow:
-        0 10px 34px var(--sh-shadow),
-        0 1px 0 var(--sh-highlight) inset;
-    transition: background .4s var(--sh-ease), box-shadow .4s var(--sh-ease),
-                padding .35s var(--sh-ease), border-color .4s var(--sh-ease);
+        0 16px 40px -12px var(--sh-shadow2),
+        0 2px 8px var(--sh-shadow),
+        inset 0 1px 0 var(--sh-highlight),
+        inset 0 -1px 2px var(--sh-underglow),
+        inset 0 0 18px var(--sh-inner);
+    /* 橡皮筋拽拉（--dx/--dy/--rot 由指针写入），松手后 --spring 弹性复位 */
+    transform:
+        translate3d(var(--dx, 0px), var(--dy, 0px), 0)
+        rotate(var(--rot, 0deg))
+        scale(var(--sc, 1));
+    transition:
+        background .4s var(--sh-ease),
+        box-shadow .4s var(--sh-ease),
+        border-color .4s var(--sh-ease),
+        padding .35s var(--sh-ease),
+        transform .62s var(--sh-spring);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
 }
 @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
-    .sh-bar { background: var(--sh-paper-solid2); }
+    .sh-bar, .sh-mobile { background: var(--sh-paper-solid2); }
 }
 
+/* ---------------- 液态玻璃：边缘折射描边 ---------------- */
+.sh-bar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: var(--sh-rim);
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+            mask-composite: exclude;
+}
+
+/* ---------------- 液态玻璃：指针微光层（--gx/--gy 跟随指针） ---------------- */
+.sh-sheen {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background:
+        radial-gradient(120px circle at var(--gx, 50%) var(--gy, 50%),
+            var(--sh-glow-hot), transparent 62%),
+        radial-gradient(360px circle at var(--gx, 50%) var(--gy, 50%),
+            var(--sh-glow-soft), transparent 70%);
+    transition: opacity .3s var(--sh-ease);
+}
+@media (hover: hover) {
+    .sh-bar:hover .sh-sheen { opacity: .4; }
+}
+/* 触压瞬间：微光照亮整块玻璃；轻微收缩像液态表面被按下 */
+.sh-bar.sh-press .sh-sheen { opacity: 1; }
+.sh-bar.sh-press { --sc: .985; }
+/* 拖拽进行中冻结过渡，完全跟随手指 / 鼠标 */
+.sh-bar.sh-drag,
+.sh-bar.sh-drag * { transition: none !important; }
+
+/* 内容永远浮在微光层之上 */
+.sh-brand, .sh-nav, .sh-toggle, .sh-burger { position: relative; z-index: 1; }
+.sh-brand img { -webkit-user-drag: none; }
+
 .sh-root.sh-scrolled .sh-bar {
-    background: var(--sh-paper-solid2);
+    background:
+        linear-gradient(180deg,
+            var(--sh-sheen-top) 0%,
+            var(--sh-sheen-mid) 45%,
+            var(--sh-sheen-bot) 100%),
+        var(--sh-tint-strong);
     box-shadow:
-        0 14px 40px var(--sh-shadow2),
-        0 1px 0 var(--sh-highlight) inset;
+        0 20px 48px -12px var(--sh-shadow2),
+        0 3px 10px var(--sh-shadow),
+        inset 0 1px 0 var(--sh-highlight),
+        inset 0 -1px 2px var(--sh-underglow),
+        inset 0 0 18px var(--sh-inner);
     padding-top: 6px;
     padding-bottom: 6px;
 }
@@ -137,7 +255,11 @@
     transform: translateX(-50%) scale(.4);
     transition: opacity .25s var(--sh-ease), transform .25s var(--sh-ease);
 }
-.sh-nav a:not(.sh-toggle):hover { color: var(--sh-ink); background: var(--sh-hover); }
+.sh-nav a:not(.sh-toggle):hover {
+    color: var(--sh-ink);
+    background: linear-gradient(180deg, var(--sh-pill-top), var(--sh-pill-bot));
+    box-shadow: inset 0 1px 0 var(--sh-pill-line);
+}
 .sh-nav a:not(.sh-toggle):hover::after { opacity: 1; transform: translateX(-50%) scale(1); }
 .sh-nav a:focus-visible, .sh-toggle:focus-visible {
     outline: 2px solid var(--sh-signal);
@@ -146,7 +268,7 @@
 .sh-nav a.sh-active { color: var(--sh-ink); }
 .sh-nav a.sh-active::after { opacity: 1; transform: translateX(-50%) scale(1); }
 
-/* ---------------- 圆形主题切换按钮 ---------------- */
+/* ---------------- 圆形主题切换按钮（玻璃中嵌套的凸起镜片） ---------------- */
 .sh-toggle {
     margin-left: 12px;
     width: 42px;
@@ -156,18 +278,43 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    border: 1px solid var(--sh-ink-25);
-    background: var(--sh-hover);
+    border: 1px solid var(--sh-ctrl-edge);
+    background:
+        linear-gradient(180deg,
+            var(--sh-sheen-top) 0%,
+            var(--sh-sheen-mid) 55%,
+            var(--sh-sheen-bot) 100%),
+        var(--sh-ctrl);
+    -webkit-backdrop-filter: blur(12px) saturate(1.8);
+            backdrop-filter: blur(12px) saturate(1.8);
     color: var(--sh-ink);
     cursor: pointer;
     padding: 0;
     position: relative;
     overflow: hidden;
+    box-shadow:
+        0 2px 8px var(--sh-shadow2),
+        inset 0 1px 0 var(--sh-highlight),
+        inset 0 -1px 2px var(--sh-underglow);
     transition: background .3s var(--sh-ease), border-color .3s var(--sh-ease),
                 box-shadow .3s var(--sh-ease), transform .3s var(--sh-ease);
 }
+/* 按下时从指腹位置漾开的中心微光 */
+.sh-toggle::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 38%,
+        var(--sh-glow-hot), var(--sh-glow-soft) 55%, transparent 72%);
+    transition: opacity .25s var(--sh-ease);
+}
+.sh-toggle:active::before { opacity: .9; }
 .sh-icon {
     position: relative;
+    z-index: 1;
     display: inline-flex;
     width: 20px; height: 20px;
 }
@@ -184,7 +331,10 @@
 .sh-toggle[data-icon="sun"] .sh-ic-sun  { opacity: 1; transform: rotate(0) scale(1); }
 .sh-toggle:hover {
     border-color: var(--sh-signal);
-    box-shadow: 0 0 0 4px rgba(223, 59, 42, .12);
+    box-shadow:
+        0 0 0 4px rgba(223, 59, 42, .12),
+        0 2px 8px var(--sh-shadow2),
+        inset 0 1px 0 var(--sh-highlight);
     transform: translateY(-1px);
 }
 .sh-toggle:active { transform: scale(.92); }
@@ -198,9 +348,14 @@
     justify-content: center;
     flex-direction: column;
     gap: 5px;
-    background: none;
-    border: 1px solid var(--sh-ink-25);
-    border-radius: 10px;
+    background:
+        linear-gradient(180deg, var(--sh-sheen-top), var(--sh-sheen-mid) 55%, var(--sh-sheen-bot)),
+        var(--sh-ctrl);
+    -webkit-backdrop-filter: blur(12px) saturate(1.8);
+            backdrop-filter: blur(12px) saturate(1.8);
+    border: 1px solid var(--sh-ctrl-edge);
+    border-radius: 12px;
+    box-shadow: inset 0 1px 0 var(--sh-highlight);
     cursor: pointer;
 }
 .sh-burger span {
@@ -218,11 +373,19 @@
     margin-top: 8px;
     padding: 0 10px;
     border-radius: 18px;
-    background: var(--sh-paper-solid2);
-    -webkit-backdrop-filter: blur(16px) saturate(1.5);
-            backdrop-filter: blur(16px) saturate(1.5);
+    background:
+        linear-gradient(180deg,
+            var(--sh-sheen-top) 0%,
+            var(--sh-sheen-mid) 45%,
+            var(--sh-sheen-bot) 100%),
+        var(--sh-tint-strong);
+    -webkit-backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
+            backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
     border: 1px solid var(--sh-edge);
-    box-shadow: 0 14px 40px var(--sh-shadow2);
+    box-shadow:
+        0 20px 48px -12px var(--sh-shadow2),
+        0 3px 10px var(--sh-shadow),
+        inset 0 1px 0 var(--sh-highlight);
     flex-direction: column;
     overflow: hidden;
     max-height: 0;
@@ -262,11 +425,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .sh-root, .sh-bar, .sh-nav a, .sh-toggle, .sh-toggle svg,
-    .sh-mobile, .sh-burger span {
+    .sh-root, .sh-bar, .sh-sheen, .sh-nav a, .sh-toggle, .sh-toggle svg,
+    .sh-toggle::before, .sh-mobile, .sh-burger span {
         animation: none !important;
         transition-duration: .001ms !important;
     }
+    .sh-bar, .sh-toggle { transform: none !important; }
 }
 
 /* 圆形扩散期间禁用一切属性过渡，避免与 View Transition 抢动画 */
