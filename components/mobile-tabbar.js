@@ -95,10 +95,10 @@
     root.className = 'mt-root';
     root.innerHTML =
         '<nav class="mt-card" aria-label="底部导航">' +
-            '<i class="mt-sheen" aria-hidden="true"></i>' +
+            '<span class="mt-clip" aria-hidden="true"><i class="mt-sheen"></i></span>' +
         '</nav>' +
         '<button class="mt-theme" type="button" aria-pressed="false">' +
-            '<i class="mt-sheen" aria-hidden="true"></i>' +
+            '<span class="mt-clip" aria-hidden="true"><i class="mt-sheen"></i></span>' +
             '<span class="mt-tt">' + ICON_MOON + ICON_SUN + '</span>' +
         '</button>';
 
@@ -190,32 +190,66 @@
     });
 
     /* ============================================================
-       液态玻璃交互：指针微光 + 橡皮筋拽开 + 松手弹性复位
-       卡片与圆钮各自独立响应；拖拽后松手的 click 被吞掉，点按不受影响
+       液态玻璃交互：指针微光 + 渐近橡皮筋拽开 + 液态形变 + 松手复位
+       · 手感：轻拖只动一点点；手拖到屏幕另一端，控件也只移动一小段
+         （渐近曲线，位移永远趋近上限而不死顶），形变随之加大
+       · 横向拖变长变窄；纵向拖变短变宽
+       · 卡片与圆钮各自独立响应；拖拽后松手的 click 被吞掉，点按不受影响
+       · touch-action:none + 无 PointerEvent 时的 touch 兜底，保证真机可用
        ============================================================ */
     (function () {
         var reduced = window.matchMedia &&
             window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var hoverable = window.matchMedia &&
+            window.matchMedia('(hover: hover)').matches;
+        var DRAG_GATE = 4;
 
-        function bind(glass, maxX, maxY) {
+        function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+        /* 渐近橡皮筋：手位移 m 再大，控件位移也只趋近 max；tau 越大近处越"沉" */
+        function asym(m, max, tau) {
+            if (!m) return 0;
+            return (m < 0 ? -1 : 1) * max * (1 - Math.exp(-Math.abs(m) / tau));
+        }
+
+        function bind(glass, maxX, tauX, maxY, tauY) {
             var down = false, moved = false, armed = false;
-            var sx = 0, sy = 0, raf = 0;
+            var startX = 0, startY = 0;
+            var px = 0, py = 0;
+            var raf = 0, rect = null;
 
-            function lightAt(x, y) {
-                var r = glass.getBoundingClientRect();
-                glass.style.setProperty('--gx', ((x - r.left) / r.width * 100) + '%');
-                glass.style.setProperty('--gy', ((y - r.top) / r.height * 100) + '%');
+            function schedule() {
+                if (raf) return;
+                raf = requestAnimationFrame(flush);
             }
-            function pull(mx, my) {
-                if (raf || reduced) return;
-                raf = requestAnimationFrame(function () {
-                    raf = 0;
-                    var dx = Math.max(-maxX, Math.min(maxX, mx * 0.42));
-                    var dy = Math.max(-maxY, Math.min(maxY, my * 0.42));
-                    glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
-                    glass.style.setProperty('--dy', dy.toFixed(2) + 'px');
-                    glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
-                });
+            function flush() {
+                raf = 0;
+                if (!rect) rect = glass.getBoundingClientRect();
+                glass.style.setProperty('--gx', (px - rect.left).toFixed(1) + 'px');
+                glass.style.setProperty('--gy', (py - rect.top).toFixed(1) + 'px');
+
+                if (!down || !moved || reduced) return;
+                var mx = px - startX, my = py - startY;
+                var horiz = Math.abs(mx) >= Math.abs(my);
+                var dx = asym(mx, maxX, tauX);
+                var dy = asym(my, maxY, tauY);
+                var p = Math.max(
+                    clamp01(Math.abs(dx) / maxX),
+                    clamp01(Math.abs(dy) / maxY)
+                );
+                glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
+                glass.style.setProperty('--dy', dy.toFixed(2) + 'px');
+                glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
+                if (horiz) {
+                    glass.style.setProperty('--skx',
+                        (clamp01(Math.abs(dx) / maxX) * 4 * (mx < 0 ? -1 : 1)).toFixed(2) + 'deg');
+                    glass.style.setProperty('--sky', '0deg');
+                } else {
+                    glass.style.setProperty('--skx', '0deg');
+                    glass.style.setProperty('--sky',
+                        (clamp01(Math.abs(dy) / maxY) * 3 * (my < 0 ? -1 : 1)).toFixed(2) + 'deg');
+                }
+                glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));  // 拖向变长/变宽
+                glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));  // 横向变窄 / 纵向变短
             }
             function release() {
                 if (!down) return;
@@ -223,32 +257,73 @@
                 armed = moved;
                 moved = false;
                 glass.classList.remove('mt-press', 'mt-drag');
-                glass.style.removeProperty('--dx');
-                glass.style.removeProperty('--dy');
-                glass.style.removeProperty('--rot');
+                ['--dx', '--dy', '--rot', '--skx', '--sky', '--sx', '--sy'].forEach(function (k) {
+                    glass.style.removeProperty(k);
+                });
                 if (raf) { cancelAnimationFrame(raf); raf = 0; }
                 setTimeout(function () { armed = false; }, 300);
             }
-
-            glass.addEventListener('pointerdown', function (e) {
-                if (e.pointerType === 'mouse' && e.button !== 0) return;
+            function begin(x, y) {
                 down = true; moved = false;
-                sx = e.clientX; sy = e.clientY;
-                lightAt(e.clientX, e.clientY);
+                startX = px = x;
+                startY = py = y;
+                rect = glass.getBoundingClientRect();
                 glass.classList.add('mt-press');
-            });
-            window.addEventListener('pointermove', function (e) {
-                if (!down) return;
-                lightAt(e.clientX, e.clientY);
-                var mx = e.clientX - sx, my = e.clientY - sy;
-                if (!moved && Math.hypot(mx, my) > 4) {
+                schedule();
+            }
+            function dragMove(x, y) {
+                px = x; py = y;
+                if (down && !moved && Math.hypot(px - startX, py - startY) > DRAG_GATE) {
                     moved = true;
                     if (!reduced) glass.classList.add('mt-drag');
                 }
-                if (moved) pull(mx, my);
+                schedule();
+            }
+
+            if (window.PointerEvent) {
+                glass.addEventListener('pointerdown', function (e) {
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    begin(e.clientX, e.clientY);
+                });
+                glass.addEventListener('pointermove', function (e) {
+                    if (down || !hoverable) return;
+                    px = e.clientX; py = e.clientY;
+                    schedule();
+                });
+                window.addEventListener('pointermove', function (e) {
+                    if (down) dragMove(e.clientX, e.clientY);
+                });
+                window.addEventListener('pointerup', release);
+                window.addEventListener('pointercancel', release);
+            } else {
+                /* 旧移动浏览器（无 PointerEvent，如 iOS 12）：跟踪第一根手指 */
+                var tid = null;
+                function findTouch(list, id) {
+                    for (var i = 0; i < list.length; i++)
+                        if (list[i].identifier === id) return list[i];
+                    return null;
+                }
+                glass.addEventListener('touchstart', function (e) {
+                    if (tid !== null) return;
+                    var t = e.changedTouches[0];
+                    tid = t.identifier;
+                    begin(t.clientX, t.clientY);
+                }, { passive: false });
+                window.addEventListener('touchmove', function (e) {
+                    if (tid === null) return;
+                    var t = findTouch(e.touches, tid);
+                    if (!t) return;
+                    dragMove(t.clientX, t.clientY);
+                    if (moved) e.preventDefault();   // 双保险：阻止页面滚动抢走手势
+                }, { passive: false });
+                function endTouch() { if (tid === null) return; tid = null; release(); }
+                window.addEventListener('touchend', endTouch);
+                window.addEventListener('touchcancel', endTouch);
+            }
+            window.addEventListener('resize', function () {
+                rect = null;
+                schedule();   // 用最后已知指针位置把光斑校正回玻璃内
             });
-            window.addEventListener('pointerup', release);
-            window.addEventListener('pointercancel', release);
             glass.addEventListener('click', function (e) {
                 if (armed) {
                     e.stopPropagation();
@@ -258,8 +333,10 @@
             }, true);
         }
 
-        bind(card, 14, 10);
-        bind(themeBtn, 8, 8);
+        /* 卡片：横向可渐近到 46px（手划到屏幕另一端时），纵向 30px；
+           圆钮更小：26 / 18px */
+        bind(card, 46, 130, 30, 110);
+        bind(themeBtn, 26, 110, 18, 90);
     })();
 
     /* ---------- 挂载 ---------- */

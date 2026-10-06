@@ -101,7 +101,7 @@
     root.className = 'sh-root';
     root.innerHTML =
         '<div class="sh-bar">' +
-            '<i class="sh-sheen" aria-hidden="true"></i>' +
+            '<span class="sh-clip" aria-hidden="true"><i class="sh-sheen"></i></span>' +
             '<a class="sh-brand" href="' + ROOT + 'index.html" aria-label="Optionext 药铺子 · 首页">' +
                 '<img alt="药铺子 Optionext" loading="eager">' +
             '</a>' +
@@ -236,88 +236,206 @@
     onScroll();
 
     /* ============================================================
-       液态玻璃交互：指针微光 + 橡皮筋拽开 + 松手弹性复位
-       · --gx/--gy：指针在玻璃表面的相对坐标（微光点）
-       · --dx/--dy/--rot：按下拖动时的橡皮筋位移（阻力 + 位移上限）
-       · 松手即移除变量，CSS 以 --sh-spring 回弹；普通点按不受影响
+       液态玻璃交互：
+       · 指针微光：静态渐变圆片 + transform 跟随（合成线程）
+       · 横向：渐近橡皮筋——近处几乎不动，手拖很远控件只移一小段
+       · 纵向（桌面）：较为跟手，越过阈值松手 → 页眉吸附到底部；
+         底部再向上拖过阈值 → 回顶部（--dock 锚点 + 弹簧飞行）
+       · 液态形变：横向拖变长变窄，纵向拖变短变宽，松手弹簧复位
+       · 拖拽后松手的 click 被吞掉；普通点按放行
+       PointerEvent 不可用的旧移动浏览器走 touch 事件兜底。
        ============================================================ */
-    (function () {
-        var glass = root.querySelector('.sh-bar');
-        var reduced = window.matchMedia &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        var hoverable = window.matchMedia &&
-            window.matchMedia('(hover: hover)').matches;
+    var glass = root.querySelector('.sh-bar');
+    var reduced = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var hoverable = window.matchMedia &&
+        window.matchMedia('(hover: hover)').matches;
 
-        var down = false, moved = false, suppressClick = false, armed = false;
-        var sx = 0, sy = 0, raf = 0;
+    var DOCK_KEY = 'optionext-hdock';
+    var H_MAX = 26, H_TAU = 120;      // 横向渐近：位移上限 px / 手感常数（越大越"不跟手"）
+    var V_FOLLOW = 0.72;              // 纵向跟手系数（1=完全跟手）
+    var DRAG_GATE = 4;
 
-        function lightAt(x, y) {
-            var r = glass.getBoundingClientRect();
-            glass.style.setProperty('--gx', ((x - r.left) / r.width * 100) + '%');
-            glass.style.setProperty('--gy', ((y - r.top) / r.height * 100) + '%');
-        }
-        function pull(mx, my) {
-            if (raf || reduced) return;
-            raf = requestAnimationFrame(function () {
-                raf = 0;
-                var dx = Math.max(-14, Math.min(14, mx * 0.42));
-                var dy = Math.max(-10, Math.min(10, my * 0.42));
-                glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
-                glass.style.setProperty('--dy', dy.toFixed(2) + 'px');
-                glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
-            });
-        }
-        function release() {
-            if (!down) return;
-            down = false;
-            suppressClick = moved;
-            armed = suppressClick;
-            moved = false;
-            glass.classList.remove('sh-press', 'sh-drag');
-            glass.style.removeProperty('--dx');
-            glass.style.removeProperty('--dy');
-            glass.style.removeProperty('--rot');
-            if (raf) { cancelAnimationFrame(raf); raf = 0; }
-            // 松手未在玻璃上触发 click 时，自动解除拦截标记
-            setTimeout(function () { armed = false; }, 300);
-        }
+    var docked = false;               // 当前锚点：false=顶部 true=底部
+    var flyingTimer = 0, resizeTimer = 0;
+    var down = false, moved = false, armed = false, armedHint = false;
+    var startX = 0, startY = 0;
+    var px = 0, py = 0;
+    var raf = 0, rect = null;
 
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    /* 渐近橡皮筋：手位移 m 再大，控件位移也只趋近 max（斜率随距离衰减） */
+    function asym(m, max, tau) {
+        if (!m) return 0;
+        return (m < 0 ? -1 : 1) * max * (1 - Math.exp(-Math.abs(m) / tau));
+    }
+    function dockOffset() { return window.innerHeight - root.offsetHeight - 28; }
+    function dockGate() { return Math.min(220, window.innerHeight * 0.26); }
+
+    function setDockVar() {
+        root.style.setProperty('--dock', docked ? dockOffset().toFixed(1) + 'px' : '0px');
+    }
+    function initDock() {
+        try { docked = localStorage.getItem(DOCK_KEY) === 'bottom'; } catch (e) { docked = false; }
+        root.classList.toggle('sh-docked', docked);
+        setDockVar();   // 挂载同帧写入：首帧即终值，不触发过渡
+    }
+    function commitDock(next) {
+        docked = next;
+        root.classList.toggle('sh-docked', docked);
+        setDockVar();
+        try { localStorage.setItem(DOCK_KEY, docked ? 'bottom' : 'top'); } catch (e) {}
+        root.classList.add('sh-flying');
+        clearTimeout(flyingTimer);
+        flyingTimer = setTimeout(function () { root.classList.remove('sh-flying'); }, 620);
+    }
+
+    function schedule() {
+        if (raf) return;
+        raf = requestAnimationFrame(flush);
+    }
+    function flush() {
+        raf = 0;
+        if (!rect) rect = glass.getBoundingClientRect();
+        var r = rect;
+        glass.style.setProperty('--gx', (px - r.left).toFixed(1) + 'px');
+        glass.style.setProperty('--gy', (py - r.top).toFixed(1) + 'px');
+
+        if (!down || !moved || reduced) return;
+        var mx = px - startX, my = py - startY;
+        var horiz = Math.abs(mx) >= Math.abs(my);
+
+        var dx = asym(mx, H_MAX, H_TAU);          // 横向：渐近、不跟手
+
+        var off = dockOffset(), over = 80;        // 纵向：较跟手，夹在两个锚点之间（留 80px 过冲）
+        var fy = clamp(my * V_FOLLOW,
+            docked ? -(off + over) : -12,
+            docked ? 12 : off + over);
+
+        var gate = dockGate();
+        var ph = clamp(Math.abs(dx) / H_MAX, 0, 1);
+        var pv = clamp(Math.abs(my) / gate, 0, 1);
+        var p = Math.max(ph, pv);                 // 形变程度 0..1
+
+        glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
+        glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
+        if (horiz) {
+            glass.style.setProperty('--skx', (ph * 4 * (mx < 0 ? -1 : 1)).toFixed(2) + 'deg');
+            glass.style.setProperty('--sky', '0deg');
+        } else {
+            glass.style.setProperty('--skx', '0deg');
+            glass.style.setProperty('--sky', (pv * 3 * (my < 0 ? -1 : 1)).toFixed(2) + 'deg');
+        }
+        glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));   // 拖向变长/变宽
+        glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));   // 横向变窄 / 纵向变短
+        root.style.setProperty('--fy', fy.toFixed(2) + 'px');
+
+        var willDock = !horiz && (docked ? my < -gate : my > gate);
+        if (willDock !== armedHint) {
+            armedHint = willDock;
+            glass.classList.toggle('sh-dock-hint', willDock);
+        }
+    }
+    function release() {
+        if (!down) return;
+        down = false;
+        armed = moved;
+        var doDock = armedHint;
+        moved = false; armedHint = false;
+        root.classList.remove('sh-dragging');                 // 恢复过渡
+        glass.classList.remove('sh-press', 'sh-drag', 'sh-dock-hint');
+        root.style.removeProperty('--fy');                    // fy 归零与 --dock 变更同帧 → 弹簧飞行
+        ['--dx', '--rot', '--skx', '--sky', '--sx', '--sy'].forEach(function (k) {
+            glass.style.removeProperty(k);
+        });
+        if (doDock) commitDock(!docked);
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        setTimeout(function () { armed = false; }, 300);
+    }
+    function begin(x, y) {
+        down = true; moved = false; armedHint = false;
+        startX = px = x; startY = py = y;
+        rect = glass.getBoundingClientRect();
+        glass.classList.add('sh-press');
+        schedule();
+    }
+    function move(x, y) {
+        px = x; py = y;
+        if (down && !moved && Math.hypot(px - startX, py - startY) > DRAG_GATE) {
+            moved = true;
+            if (!reduced) {
+                glass.classList.add('sh-drag');
+                root.classList.add('sh-dragging');   // 冻结飞行过渡，纵向 1:1 跟手
+            }
+        }
+        schedule();
+    }
+
+    if (window.PointerEvent) {
         glass.addEventListener('pointerdown', function (e) {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
-            down = true; moved = false;
-            sx = e.clientX; sy = e.clientY;
-            lightAt(e.clientX, e.clientY);
-            glass.classList.add('sh-press');
+            begin(e.clientX, e.clientY);
         });
         glass.addEventListener('pointermove', function (e) {
-            if (!down && hoverable) lightAt(e.clientX, e.clientY);
+            if (down || !hoverable) return;
+            px = e.clientX; py = e.clientY;
+            schedule();
         });
         window.addEventListener('pointermove', function (e) {
-            if (!down) return;
-            lightAt(e.clientX, e.clientY);
-            var mx = e.clientX - sx, my = e.clientY - sy;
-            if (!moved && Math.hypot(mx, my) > 4) {
-                moved = true;
-                if (!reduced) glass.classList.add('sh-drag');
-            }
-            if (moved) pull(mx, my);
+            if (down) move(e.clientX, e.clientY);
         });
         window.addEventListener('pointerup', release);
         window.addEventListener('pointercancel', release);
-        // 拖拽后松手的 click 属误触：捕获阶段吞掉；普通点按放行
-        glass.addEventListener('click', function (e) {
-            if (armed) {
-                e.stopPropagation();
-                e.preventDefault();
-                armed = false;
-            }
-        }, true);
-    })();
+    } else {
+        /* 旧移动浏览器（无 PointerEvent，如 iOS 12）：touch 兜底，跟踪第一根手指 */
+        var tid = null;
+        function findTouch(list, id) {
+            for (var i = 0; i < list.length; i++)
+                if (list[i].identifier === id) return list[i];
+            return null;
+        }
+        glass.addEventListener('touchstart', function (e) {
+            if (tid !== null) return;
+            var t = e.changedTouches[0];
+            tid = t.identifier;
+            begin(t.clientX, t.clientY);
+        }, { passive: false });
+        window.addEventListener('touchmove', function (e) {
+            if (tid === null) return;
+            var t = findTouch(e.touches, tid);
+            if (!t) return;
+            move(t.clientX, t.clientY);
+            if (moved) e.preventDefault();   // 双保险：阻止页面滚动抢走手势
+        }, { passive: false });
+        function endTouch() { if (tid === null) return; tid = null; release(); }
+        window.addEventListener('touchend', endTouch);
+        window.addEventListener('touchcancel', endTouch);
+    }
+    glass.addEventListener('click', function (e) {
+        if (armed) {
+            e.stopPropagation();
+            e.preventDefault();
+            armed = false;
+        }
+    }, true);
+
+    /* 窗口缩放：缓存矩形作废（光斑下一帧自动校正）；底部锚点随高度瞬时跟随 */
+    window.addEventListener('resize', function () {
+        rect = null;
+        if (docked) {
+            root.classList.add('sh-dragging');
+            setDockVar();
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () { root.classList.remove('sh-dragging'); }, 160);
+        }
+        schedule();
+    });
 
     /* ---------- 挂载 ---------- */
     function mount() {
         syncThemeUI();
         document.body.appendChild(root);
+        initDock();
     }
     if (document.body) mount();
     else document.addEventListener('DOMContentLoaded', mount);

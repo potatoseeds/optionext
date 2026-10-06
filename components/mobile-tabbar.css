@@ -19,11 +19,11 @@
     --mt-highlight: rgba(255, 255, 255, .75);
     --mt-hover: rgba(20, 19, 16, .05);
     /* —— 液态玻璃材质令牌（亮色）—— */
-    --mt-tint: rgba(244, 243, 239, .28);
-    --mt-sheen-top: rgba(255, 255, 255, .52);      /* 顶部菲涅耳高光 */
-    --mt-sheen-mid: rgba(255, 255, 255, .10);
-    --mt-sheen-bot: rgba(255, 255, 255, .20);
-    --mt-inner: rgba(255, 255, 255, .14);
+    --mt-tint: rgba(244, 243, 239, .18);           /* 极薄底色，backdrop 模糊为主角 */
+    --mt-sheen-top: rgba(255, 255, 255, .26);      /* 顶部菲涅耳高光（薄） */
+    --mt-sheen-mid: rgba(255, 255, 255, .05);
+    --mt-sheen-bot: rgba(255, 255, 255, .10);
+    --mt-inner: rgba(255, 255, 255, .07);
     --mt-underglow: rgba(20, 19, 16, .06);
     --mt-pill-top: rgba(255, 255, 255, .55);
     --mt-pill-bot: rgba(255, 255, 255, .08);
@@ -54,11 +54,11 @@
     --mt-highlight: rgba(255, 255, 255, .28);
     --mt-hover: rgba(233, 231, 225, .08);
     /* —— 液态玻璃材质令牌（暗色）—— */
-    --mt-tint: rgba(18, 16, 13, .34);
-    --mt-sheen-top: rgba(255, 255, 255, .17);
-    --mt-sheen-mid: rgba(255, 255, 255, .03);
-    --mt-sheen-bot: rgba(255, 255, 255, .07);
-    --mt-inner: rgba(255, 255, 255, .05);
+    --mt-tint: rgba(18, 16, 13, .28);
+    --mt-sheen-top: rgba(255, 255, 255, .13);
+    --mt-sheen-mid: rgba(255, 255, 255, .02);
+    --mt-sheen-bot: rgba(255, 255, 255, .05);
+    --mt-inner: rgba(255, 255, 255, .04);
     --mt-underglow: rgba(0, 0, 0, .45);
     --mt-pill-top: rgba(255, 255, 255, .14);
     --mt-pill-bot: rgba(255, 255, 255, .03);
@@ -105,19 +105,23 @@
             var(--mt-sheen-mid) 45%,
             var(--mt-sheen-bot) 100%),
         var(--mt-tint);
-    -webkit-backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
-            backdrop-filter: blur(22px) saturate(1.9) brightness(1.05);
+    -webkit-backdrop-filter: blur(20px) saturate(1.7);
+            backdrop-filter: blur(20px) saturate(1.7);
     box-shadow:
         0 16px 40px -12px var(--mt-shadow2),
         0 2px 8px var(--mt-shadow),
         inset 0 1px 0 var(--mt-highlight),
         inset 0 -1px 2px var(--mt-underglow),
-        inset 0 0 18px var(--mt-inner);
-    /* 橡皮筋拽拉（--dx/--dy/--rot 由指针写入），松手 --mt-spring 回弹 */
+        inset 0 0 14px var(--mt-inner);
+    /* 渐近橡皮筋拽拉 + 液态形变（变量 rAF 写入），松手 --mt-spring 回弹 */
     transform:
         translate3d(var(--dx, 0px), var(--dy, 0px), 0)
         rotate(var(--rot, 0deg))
-        scale(var(--sc, 1));
+        skewX(var(--skx, 0deg))
+        skewY(var(--sky, 0deg))
+        scale(var(--sc, 1))
+        scaleX(var(--sx, 1))
+        scaleY(var(--sy, 1));
     transition:
         background .4s var(--mt-ease),
         box-shadow .4s var(--mt-ease),
@@ -126,7 +130,18 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
+    /* 玻璃表面的触摸完全交给拖拽：否则真机上垂直拖会触发页面滚动并被 pointercancel 打断 */
+    touch-action: none;
+    cursor: grab;
+}
+.mt-card.mt-drag,
+.mt-theme.mt-drag { cursor: grabbing; }
+/* 拖拽中独立成层 + 冻结自身过渡，位移 1:1 跟手 */
+.mt-card.mt-drag,
+.mt-theme.mt-drag {
+    will-change: transform;
+    transition: background .4s var(--mt-ease), box-shadow .4s var(--mt-ease),
+                border-color .4s var(--mt-ease);
 }
 @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
     .mt-card, .mt-theme { background: var(--mt-paper-solid2); }
@@ -153,32 +168,44 @@
             mask-composite: exclude;
 }
 
-/* 指针微光层（--gx/--gy 跟随指腹 / 鼠标） */
-.mt-sheen {
+/* .mt-clip：铺满玻璃内部的独立裁剪层（不裁内容的 focus 描边） */
+.mt-clip {
     position: absolute;
     inset: 0;
     z-index: 0;
     border-radius: inherit;
+    overflow: hidden;
     pointer-events: none;
+}
+/* 指针微光层：静态渐变圆片，只动 transform（合成线程），不重绘 / 不重光栅化。
+   --gx/--gy 为相对玻璃左上角的像素坐标（JS rAF 写入）。 */
+.mt-sheen {
+    position: absolute;
+    left: 0; top: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
     opacity: 0;
-    background:
-        radial-gradient(110px circle at var(--gx, 50%) var(--gy, 50%),
-            var(--mt-glow-hot), transparent 62%),
-        radial-gradient(280px circle at var(--gx, 50%) var(--gy, 50%),
-            var(--mt-glow-soft), transparent 70%);
+    will-change: transform;
+    background: radial-gradient(circle,
+        var(--mt-glow-hot) 0%,
+        var(--mt-glow-soft) 38%,
+        transparent 68%);
+    transform: translate3d(var(--gx, -300px), var(--gy, -300px), 0);
     transition: opacity .3s var(--mt-ease);
 }
+.mt-card .mt-sheen  { width: 220px; height: 220px; margin: -110px 0 0 -110px; }
+.mt-theme .mt-sheen { width: 150px; height: 150px; margin:  -75px 0 0  -75px; }
 @media (hover: hover) {
     .mt-card:hover .mt-sheen,
-    .mt-theme:hover .mt-sheen { opacity: .4; }
+    .mt-theme:hover .mt-sheen { opacity: .32; }
 }
 .mt-card.mt-press .mt-sheen,
-.mt-theme.mt-press .mt-sheen { opacity: 1; }
+.mt-theme.mt-press .mt-sheen { opacity: .9; }
 .mt-card.mt-press { --sc: .97; }
 .mt-theme.mt-press { --sc: .9; }
-/* 拖拽进行中冻结过渡，完全跟随手指 */
-.mt-card.mt-drag, .mt-card.mt-drag *,
-.mt-theme.mt-drag, .mt-theme.mt-drag * { transition: none !important; }
+.mt-card.mt-drag .mt-sheen,
+.mt-theme.mt-drag .mt-sheen { transition: opacity .12s linear; }
 
 /* ---------------- 左侧小卡片：两个链接按钮 ---------------- */
 .mt-card {
@@ -203,6 +230,7 @@
     border-radius: 999px;
     text-decoration: none;
     color: var(--mt-ink-70);
+    cursor: pointer;
     white-space: nowrap;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
