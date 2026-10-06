@@ -40,10 +40,11 @@
 .mt-root {
     position: fixed;
     left: 50%;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
     transform: translateX(-50%);
     z-index: 1000;
-    width: min(460px, calc(100vw - 24px));
+    width: auto;                              /* 缩短：随内容收窄，不再撑满 */
+    max-width: calc(100vw - 24px);
     font-family: var(--mt-font-sans);
     animation: mt-rise .7s var(--mt-ease) .1s both;
 }
@@ -55,10 +56,10 @@
 
 .mt-bar {
     display: flex;
-    align-items: stretch;
-    gap: 6px;
-    padding: 6px;
-    border-radius: 20px;
+    align-items: center;
+    gap: 2px;
+    padding: 5px;
+    border-radius: 999px;                     /* 全胶囊：更圆润 */
     background: var(--mt-paper-solid);
     -webkit-backdrop-filter: blur(16px) saturate(1.5);
             backdrop-filter: blur(16px) saturate(1.5);
@@ -76,14 +77,14 @@
 /* ---------------- 导航项（纯文字：左一项 / 右一项） ---------------- */
 .mt-item {
     position: relative;
-    flex: 1 1 0;
+    flex: none;                               /* 内容宽度：整体变短 */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 11px 8px 10px;
-    border-radius: 15px;
+    padding: 11px 16px 10px;
+    border-radius: 999px;
     text-decoration: none;
     color: var(--mt-ink-70);
     white-space: nowrap;
@@ -127,8 +128,61 @@
 .mt-item.mt-active { color: var(--mt-ink); }
 .mt-item.mt-active::after { opacity: 1; transform: translateX(-50%) scale(1); }
 
+/* ---------------- 分隔线：导航项 / 主题钮 ---------------- */
+.mt-sep {
+    flex: none;
+    width: 1px;
+    height: 20px;
+    margin: 0 5px;
+    background: var(--mt-ink-25);
+}
+
+/* ---------------- 右侧日月切换圆钮（与栏平齐、整合进胶囊） ---------------- */
+.mt-theme {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--mt-ink-70);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .25s var(--mt-ease), color .25s var(--mt-ease),
+                transform .15s var(--mt-ease);
+}
+.mt-tt { position: relative; display: inline-flex; width: 19px; height: 19px; }
+.mt-tt svg {
+    position: absolute;
+    inset: 0;
+    width: 19px; height: 19px;
+    transition: opacity .38s var(--mt-ease), transform .5s var(--mt-ease);
+}
+/* 亮色：月亮在位，太阳藏于旋转位；暗色（data-icon=sun）互换 */
+.mt-moon { opacity: 1; transform: rotate(0) scale(1); }
+.mt-sun  { opacity: 0; transform: rotate(-90deg) scale(.55); }
+.mt-theme[data-icon="sun"] .mt-moon { opacity: 0; transform: rotate(90deg) scale(.55); }
+.mt-theme[data-icon="sun"] .mt-sun  { opacity: 1; transform: rotate(0) scale(1); }
+
+@media (hover: hover) {
+    .mt-theme:hover { color: var(--mt-ink); background: var(--mt-hover); }
+}
+.mt-theme:active { transform: scale(.9); }
+.mt-theme:focus-visible { outline: 2px solid var(--mt-signal); outline-offset: 2px; }
+
+/* 圆形扩散期间冻结一切过渡，并接管 View Transition 裁剪层 */
+.mt-vt *, .mt-vt *::before, .mt-vt *::after { transition: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root) { animation: none; z-index: 1; }
+    ::view-transition-new(root) { animation: none; z-index: 9999; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .mt-root, .mt-bar, .mt-item, .mt-item::after {
+    .mt-root, .mt-bar, .mt-item, .mt-item::after, .mt-theme, .mt-tt svg {
         animation: none !important;
         transition-duration: .001ms !important;
     }
