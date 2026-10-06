@@ -115,20 +115,20 @@
             align-items: center;
         }
 
-        /* 品牌字标（竖版：明底黑字 / 暗底白字各一张） */
+        /* 品牌字标（横版：明底黑字 / 暗底白字各一张） */
         .hero-wordmark {
-            width: min(15vw, 60px);
-            margin: 0 auto 18px;
+            width: min(286px, 74vw);
+            margin: 0 auto 22px;
             opacity: 0;
             animation: rise .85s var(--ease-out) 1.3s forwards;
         }
         .hero-wordmark img {
             display: block;
-            width: 182.6%;
+            width: 160.5%;
             height: auto;
             max-width: none;
-            /* 抵消 400×1000 画布留白（bbox L102 R321 T56 B890），只留笔画 */
-            margin: -25.6% 0 -50.2% -46.6%;
+            /* 抵消 1000×400 画布留白（bbox x191–813 / y61–299），只留笔画 */
+            margin: -9.8% 0 -16.2% -30.7%;
         }
         .hero-wordmark .wm-dark { display: none; }
         :root[data-theme="dark"] .hero-wordmark .wm-light { display: none; }
@@ -291,8 +291,8 @@
             <div class="hero-copy">
                 <div class="hero-copy-inner">
                     <div class="hero-wordmark" role="img" aria-label="药铺子">
-                        <img class="wm-light" src="image/%E5%AD%97%E6%A0%87%E7%AB%96%E7%89%88%E9%BB%91.png" width="400" height="1000" alt="" fetchpriority="high">
-                        <img class="wm-dark" src="image/%E5%AD%97%E6%A0%87%E7%AB%96%E7%89%88%E7%99%BD.png" width="400" height="1000" alt="" aria-hidden="true" fetchpriority="high">
+                        <img class="wm-light" src="image/%E5%AD%97%E6%A0%87%E6%A8%AA%E6%9D%BF%E9%BB%91.png" width="1000" height="400" alt="" fetchpriority="high">
+                        <img class="wm-dark" src="image/%E5%AD%97%E6%A0%87%E6%A8%AA%E6%9D%BF%E7%99%BD.png" width="1000" height="400" alt="" aria-hidden="true" fetchpriority="high">
                     </div>
 
                     <h1>
