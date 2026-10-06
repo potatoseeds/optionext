@@ -31,7 +31,7 @@
        href 以 '/' 开头表示相对站点根，其余按字面值使用 */
     var NAV = [
         { cn: '团队介绍', en: 'TEAM',      href: '/index.html' },
-        { cn: '项目',     en: 'PROJECTS',  href: '#' }
+        { cn: '项目',     en: 'PROJECTS',  href: '/projects.html' }
     ];
 
     function resolve(href) {
