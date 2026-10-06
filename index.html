@@ -217,52 +217,36 @@
         }
         .structure-head .rule { flex: 1; height: 1px; background: var(--ink-25); }
 
-        /* ---------------- 团队介绍 ---------------- */
-        .team-grid {
+        /* ---------------- 药铺台账：四条同字号档案行 ---------------- */
+        .ledger { border-top: 1px solid var(--ink-25); }
+        .ledger-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 340px;
-            gap: clamp(36px, 5vw, 64px);
-            align-items: start;
-        }
-        .team-prose p {
-            font-size: 15.5px;
-            line-height: 1.95;
-            color: var(--ink-70);
-            margin-bottom: 22px;
-        }
-        .team-prose p:last-child { margin-bottom: 0; }
-        .team-prose b { font-weight: 700; color: var(--ink); }
-        .team-statement {
-            font-size: clamp(19px, 1.8vw, 24px);
-            line-height: 1.65;
-            color: var(--ink);
-            font-weight: 500;
-            margin-bottom: 30px;
-        }
-
-        /* 右侧药谱台账：名号 / 口号 */
-        .team-ledger {
-            border: 1px solid var(--ink-12);
-            border-radius: 20px;
-            background: rgba(var(--ink-rgb), .03);
-            padding: 6px 28px;
-        }
-        .team-row {
-            padding: 22px 0;
+            grid-template-columns: 190px 1fr;
+            gap: clamp(24px, 4vw, 72px);
+            align-items: baseline;
+            padding: 27px 8px;
             border-bottom: 1px dotted var(--ink-25);
         }
-        .team-row:last-child { border-bottom: 0; }
-        .team-row dt {
+        .ledger-row dt {
             font-family: var(--font-mono);
             font-size: 11px;
-            letter-spacing: .16em;
+            letter-spacing: .14em;
             color: var(--signal);
-            margin-bottom: 9px;
         }
-        .team-row dd {
-            font-size: 14.5px;
-            line-height: 1.8;
+        .ledger-row dt .idx {
+            color: var(--ink-45);
+            margin-right: 12px;
+        }
+        .ledger-row dd {
+            font-size: 17px;
+            line-height: 1.85;
+            letter-spacing: .02em;
             color: var(--ink);
+        }
+        .ledger-row dd .ledger-dot {
+            color: var(--signal);
+            font-family: var(--font-mono);
+            font-weight: 400;
         }
 
         /* ---------------- 动效 ---------------- */
@@ -287,7 +271,7 @@
         /* 窄屏兜底（站点以 PC 为主，移动端由 guard 跳转） */
         @media (max-width: 1080px) {
             .hero-copy { max-width: 78vw; }
-            .team-grid { grid-template-columns: 1fr; gap: 34px; }
+            .ledger-row { grid-template-columns: 1fr; gap: 10px; padding: 22px 4px; }
         }
     </style>
 </head>
@@ -319,39 +303,33 @@
 
         <div class="dot-band" aria-hidden="true"></div>
 
-        <!-- ================= 团队介绍 ================= -->
+        <!-- ================= 药铺台账 ================= -->
         <section class="structure" id="team">
             <div class="structure-inner">
                 <div class="structure-head">
-                    <span class="mono">01 / TEAM</span>
-                    <h2>团队介绍</h2>
+                    <span class="mono">01 / LEDGER</span>
+                    <h2>药铺台账</h2>
                     <span class="rule" aria-hidden="true"></span>
                 </div>
 
-                <div class="team-grid">
-                    <div class="team-prose">
-                        <p class="team-statement">
-                            Optionext 药铺子 —— 一支相信「下一步」可以被熟练应对的团队。
-                        </p>
-                        <p>
-                            我们的名字由 <b>Option</b> 与 <b>next</b> 合成：Option
-                            是未来摊开的无限种可能，ext 是当下迈出的下一步。未来从不只有
-                            一个答案，真正要紧的，是在岔路口保持镇定——认出症候、理清头绪，
-                            然后稳稳地抓好药、开对方。
-                        </p>
+                <dl class="ledger">
+                    <div class="ledger-row">
+                        <dt><span class="idx">01</span>中文名 / CN</dt>
+                        <dd>药铺子</dd>
                     </div>
-
-                    <dl class="team-ledger">
-                        <div class="team-row">
-                            <dt>名号 / NAME</dt>
-                            <dd>药铺子 · Optionext</dd>
-                        </div>
-                        <div class="team-row">
-                            <dt>口号 / SLOGAN</dt>
-                            <dd>开方未来的可能</dd>
-                        </div>
-                    </dl>
-                </div>
+                    <div class="ledger-row">
+                        <dt><span class="idx">02</span>英文名 / EN</dt>
+                        <dd>Optionext</dd>
+                    </div>
+                    <div class="ledger-row">
+                        <dt><span class="idx">03</span>口号 / SLOGAN</dt>
+                        <dd>开方未来的可能<span class="ledger-dot">.</span></dd>
+                    </div>
+                    <div class="ledger-row">
+                        <dt><span class="idx">04</span>理念 / PRINCIPLE</dt>
+                        <dd>在未来的无限种可能中，像在药铺之中开方一样，熟练地应对下一步操作。</dd>
+                    </div>
+                </dl>
             </div>
         </section>
     </main>
