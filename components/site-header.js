@@ -240,7 +240,7 @@
        · 指针微光：静态渐变圆片 + transform 跟随（合成线程）
        · 横向：渐近橡皮筋——近处几乎不动，手拖很远控件只移一小段
        · 纵向（桌面）：较为跟手，越过阈值松手 → 页眉吸附到底部；
-         底部再向上拖过阈值 → 回顶部（--dock 锚点 + 弹簧飞行）
+         底部再向上拖过阈值 → 回顶部（root.top 锚点 FLIP + 弹簧飞行）
        · 液态形变：横向拖变长变窄，纵向拖变短变宽，松手弹簧复位
        · 拖拽后松手的 click 被吞掉；普通点按放行
        PointerEvent 不可用的旧移动浏览器走 touch 事件兜底。
@@ -257,13 +257,14 @@
     var DRAG_GATE = 4;
 
     var docked = false;               // 当前锚点：false=顶部 true=底部
-    var flyingTimer = 0, resizeTimer = 0;
+    var flyingTimer = 0;
     var down = false, moved = false, armed = false, armedHint = false;
     var startX = 0, startY = 0;
     var px = 0, py = 0;
     var gxNorm = 0;                   // 按压点水平位置：-1=左端 0=中 +1=右端（决定垂直拖时哪一侧先沉）
     var raf = 0, rect = null;
     var V_EDGE = 16;                  // 垂直拖满时，受力侧边缘相对中心的最大额外下沉 px
+    var liveSeq = 0;                  // 交互代号：回弹期间再次按下可作废上一次的摘类
 
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
     /* 渐近橡皮筋：手位移 m 再大，控件位移也只趋近 max（斜率随距离衰减） */
@@ -271,25 +272,37 @@
         if (!m) return 0;
         return (m < 0 ? -1 : 1) * max * (1 - Math.exp(-Math.abs(m) / tau));
     }
-    function dockOffset() { return window.innerHeight - root.offsetHeight - 28; }
+    /* 顶锚(14) → 底锚 的纵向距离；底锚 top = 14 + travel（底留白 14px） */
+    function dockTravel() { return window.innerHeight - root.offsetHeight - 28; }
     function dockGate() { return Math.min(220, window.innerHeight * 0.26); }
-
-    function setDockVar() {
-        glass.style.setProperty('--dock', docked ? dockOffset().toFixed(1) + 'px' : '0px');
+    function anchorTop() { return docked ? 14 + dockTravel() : 14; }
+    function saveDock() {
+        try { localStorage.setItem(DOCK_KEY, docked ? 'bottom' : 'top'); } catch (e) {}
     }
+
     function initDock() {
         try { docked = localStorage.getItem(DOCK_KEY) === 'bottom'; } catch (e) { docked = false; }
         root.classList.toggle('sh-docked', docked);
-        setDockVar();   // 挂载同帧写入：首帧即终值，不触发过渡
+        /* 锚点直接写 root.top：root 无 top 过渡，挂载同帧即终值，不闪不动。
+           绝不能用 transform 承载吸附位——静止态玻璃 computed transform 必须是 none，
+           否则 iOS/WKWebView backdrop-filter 模糊采样失效 */
+        root.style.top = anchorTop().toFixed(1) + 'px';
     }
-    function commitDock(next) {
-        docked = next;
-        root.classList.toggle('sh-docked', docked);
-        setDockVar();
-        try { localStorage.setItem(DOCK_KEY, docked ? 'bottom' : 'top'); } catch (e) {}
-        root.classList.add('sh-flying');
-        clearTimeout(flyingTimer);
-        flyingTimer = setTimeout(function () { root.classList.remove('sh-flying'); }, 620);
+
+    /* 回弹/飞行结束后摘除 .sh-live，让静止态 computed transform 回归 none */
+    function dropLiveLater() {
+        var seq = liveSeq;
+        var finish = function () {
+            if (seq === liveSeq) glass.classList.remove('sh-live');
+        };
+        var onEnd = function (e) {
+            if (e.target === glass && e.propertyName === 'transform' && seq === liveSeq) {
+                glass.removeEventListener('transitionend', onEnd);
+                finish();
+            }
+        };
+        glass.addEventListener('transitionend', onEnd);
+        setTimeout(finish, 680);   // 无 transitionend 场景兜底
     }
 
     function schedule() {
@@ -309,7 +322,7 @@
 
         var dx = asym(mx, H_MAX, H_TAU);          // 横向：渐近、不跟手
 
-        var off = dockOffset(), over = 80;        // 纵向：较跟手，夹在两个锚点之间（留 80px 过冲）
+        var off = dockTravel(), over = 80;        // 纵向：较跟手，夹在两个锚点之间（留 80px 过冲）
         var fy = clamp(my * V_FOLLOW,
             docked ? -(off + over) : -12,
             docked ? 12 : off + over);
@@ -339,27 +352,81 @@
             glass.classList.toggle('sh-dock-hint', willDock);
         }
     }
+    function clearShapeVars() {
+        ['--dx', '--fy', '--rot', '--sx', '--sy'].forEach(function (k) {
+            glass.style.removeProperty(k);
+        });
+    }
     function release() {
         if (!down) return;
         down = false;
         armed = moved;
         var doDock = armedHint;
         moved = false; armedHint = false;
-        glass.classList.remove('sh-press', 'sh-drag', 'sh-dock-hint');  // 移除 sh-drag 即恢复弹簧过渡
-        glass.style.removeProperty('--fy');                   // fy 归零与 --dock 变更同帧 → 弹簧飞行
-        ['--dx', '--rot', '--sx', '--sy'].forEach(function (k) {
-            glass.style.removeProperty(k);
-        });
-        if (doDock) commitDock(!docked);
         if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        glass.classList.remove('sh-press', 'sh-dock-hint');
+
+        if (reduced) {
+            glass.classList.remove('sh-drag');
+            clearShapeVars();
+            if (doDock) {
+                docked = !docked;
+                root.classList.toggle('sh-docked', docked);
+                root.style.top = anchorTop().toFixed(1) + 'px';
+                saveDock();
+            }
+            glass.classList.remove('sh-live');
+            setTimeout(function () { armed = false; }, 300);
+            return;
+        }
+
+        if (doDock) {
+            /* —— FLIP 吸附飞行 ——
+               1) 记录当前视觉位置；root.top 瞬跳到新锚点（root 无 top 过渡，不可见），
+                  同帧把 --fy 设为补偿量（sh-drag 仍冻结 transform 过渡）→ 视觉钉在原位；
+               2) 双 rAF 后解冻弹簧并清 --fy → 玻璃从原位一把弹簧飞到新锚点；
+               3) 飞行结束 transitionend 摘除 .sh-live → 静止态 transform 回归 none。 */
+            var visTop = glass.getBoundingClientRect().top;
+            docked = !docked;
+            root.classList.toggle('sh-docked', docked);
+            var topVal = anchorTop().toFixed(1);
+            root.style.top = topVal + 'px';
+            saveDock();
+            var hold = visTop - parseFloat(topVal) - glass.offsetTop;
+            glass.style.setProperty('--fy', hold.toFixed(2) + 'px');
+            ['--dx', '--rot', '--sx', '--sy'].forEach(function (k) {
+                glass.style.removeProperty(k);
+            });
+            root.classList.add('sh-flying');
+            clearTimeout(flyingTimer);
+            flyingTimer = setTimeout(function () {
+                root.classList.remove('sh-flying');
+                rect = null;   // 光斑坐标缓存作废，下次按新锚点重算
+            }, 620);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    glass.classList.remove('sh-drag');
+                    glass.style.removeProperty('--fy');
+                    dropLiveLater();
+                });
+            });
+        } else {
+            glass.classList.remove('sh-drag');   // 恢复弹簧过渡
+            clearShapeVars();                    // 变量归零 → 弹簧回当前锚点
+            dropLiveLater();
+        }
         setTimeout(function () { armed = false; }, 300);
     }
     function begin(x, y) {
         down = true; moved = false; armedHint = false;
+        liveSeq++;
         startX = px = x; startY = py = y;
         rect = glass.getBoundingClientRect();
         gxNorm = clamp((x - (rect.left + rect.width / 2)) / (rect.width / 2), -1, 1);
-        glass.classList.add('sh-press');
+        glass.classList.add('sh-press', 'sh-live');
+        // 飞行途中再次抓住：作废隐藏光斑计时，立刻恢复光斑
+        clearTimeout(flyingTimer);
+        root.classList.remove('sh-flying');
         schedule();
     }
     function move(x, y) {
@@ -421,15 +488,11 @@
         }
     }, true);
 
-    /* 窗口缩放：缓存矩形作废（光斑下一帧自动校正）；底部锚点随高度瞬时跟随 */
+    /* 窗口缩放：缓存矩形作废（光斑下一帧自动校正）；底部锚点随高度瞬时跟随。
+       root.top 无过渡，直接改即可；此时玻璃静止态 transform 为 none，不受影响 */
     window.addEventListener('resize', function () {
         rect = null;
-        if (docked) {
-            glass.classList.add('sh-drag');   // 瞬时更新 --dock，不飞行动画
-            setDockVar();
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function () { glass.classList.remove('sh-drag'); }, 160);
-        }
+        if (docked && !down) root.style.top = anchorTop().toFixed(1) + 'px';
         schedule();
     });
 

@@ -217,6 +217,24 @@
             var px = 0, py = 0;
             var gxNorm = 0;   // 按压点水平位置 -1..1：决定垂直拖时哪一侧先沉
             var raf = 0, rect = null;
+            var liveSeq = 0;  // 交互代号：回弹期间再次按下可作废上一次的摘类
+
+            /* 静止态玻璃绝不能带 transform（iOS backdrop-filter 会失效），
+               只有交互期挂 .mt-live；松手回弹结束后摘除，computed transform 回归 none */
+            function dropLiveLater() {
+                var seq = liveSeq;
+                var finish = function () {
+                    if (seq === liveSeq) glass.classList.remove('mt-live');
+                };
+                var onEnd = function (e) {
+                    if (e.target === glass && e.propertyName === 'transform' && seq === liveSeq) {
+                        glass.removeEventListener('transitionend', onEnd);
+                        finish();
+                    }
+                };
+                glass.addEventListener('transitionend', onEnd);
+                setTimeout(finish, 680);   // 纯点按/被打断等无 transitionend 场景兜底
+            }
 
             function schedule() {
                 if (raf) return;
@@ -259,16 +277,19 @@
                     glass.style.removeProperty(k);
                 });
                 if (raf) { cancelAnimationFrame(raf); raf = 0; }
+                if (reduced) glass.classList.remove('mt-live');
+                else dropLiveLater();
                 setTimeout(function () { armed = false; }, 300);
             }
             function begin(x, y) {
                 down = true; moved = false;
+                liveSeq++;
                 startX = px = x;
                 startY = py = y;
                 rect = glass.getBoundingClientRect();
                 var cx = rect.left + rect.width / 2, w2 = rect.width / 2 || 1;
                 gxNorm = Math.max(-1, Math.min(1, (x - cx) / w2));
-                glass.classList.add('mt-press');
+                glass.classList.add('mt-press', 'mt-live');
                 schedule();
             }
             function dragMove(x, y) {

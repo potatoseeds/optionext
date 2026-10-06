@@ -83,7 +83,8 @@
     top: 14px;
     /* left/right + margin auto 居中，【不带 transform】——iOS/WKWebView 中
        backdrop-filter 元素的祖先有非 none transform 会使模糊采样失效；
-       纵向吸附/拖拽位移全部在玻璃本体 .sh-bar 上（--dock/--fy） */
+       顶/底吸附锚点就是本元素的 top（JS FLIP 瞬跳，无过渡），
+       拖拽跟手位移在玻璃本体 .sh-bar 的 --fy 上（仅交互期 .sh-live 挂 transform） */
     left: 0;
     right: 0;
     margin: 0 auto;
@@ -125,11 +126,28 @@
         inset 0 1px 0 var(--sh-highlight),
         inset 0 -1px 2px var(--sh-underglow),
         inset 0 0 14px var(--sh-inner);
-    /* --dx 横向橡皮筋；--dock 顶/底吸附锚点 + --fy 纵向跟手；
-       rotate 受力侧先沉；scaleX/Y 液态形变（变量由指针 rAF 写入，松手弹簧复位） */
+    user-select: none;
+    -webkit-user-select: none;
+    /* 玻璃表面的触摸完全由拖拽接管：否则垂直拖会被浏览器滚动手势抢走（pointercancel） */
+    touch-action: none;
+    cursor: grab;
+    /* 静止态【绝不带 transform】：iOS Safari/WKWebView 中 backdrop-filter 元素
+       自身存在非 none transform（含 translate3d(0,0,0)、identity 矩阵）会令模糊
+       采样失效。顶/底吸附锚点在 .sh-root 的 top 上（JS FLIP），拖拽 transform 链
+       只在交互期 .sh-live 上出现，松手回弹结束即摘除，computed transform 回归 none */
+    transition:
+        background .4s var(--sh-ease),
+        box-shadow .4s var(--sh-ease),
+        border-color .4s var(--sh-ease),
+        padding .35s var(--sh-ease);
+}
+/* 交互期（pointerdown 起、回弹/飞行结束止）才挂 transform + 弹簧过渡。
+   --dx 横向橡皮筋；--fy 相对当前锚点的纵向跟手；
+   rotate 受力侧先沉；scaleX/Y 液态形变（变量由指针 rAF 写入，松手弹簧复位） */
+.sh-bar.sh-live {
     transform:
         translate3d(var(--dx, 0px), 0, 0)
-        translateY(calc(var(--dock, 0px) + var(--fy, 0px)))
+        translateY(var(--fy, 0px))
         rotate(var(--rot, 0deg))
         scale(var(--sc, 1))
         scaleX(var(--sx, 1))
@@ -140,11 +158,6 @@
         border-color .4s var(--sh-ease),
         padding .35s var(--sh-ease),
         transform .62s var(--sh-spring);
-    user-select: none;
-    -webkit-user-select: none;
-    /* 玻璃表面的触摸完全由拖拽接管：否则垂直拖会被浏览器滚动手势抢走（pointercancel） */
-    touch-action: none;
-    cursor: grab;
 }
 .sh-bar.sh-drag { cursor: grabbing; }
 /* 拖拽期间：独立成层 + 冻结自身过渡，位移才能 1:1 跟手（松手移除类即恢复弹簧） */
@@ -153,6 +166,10 @@
     transition: background .4s var(--sh-ease), box-shadow .4s var(--sh-ease),
                 border-color .4s var(--sh-ease), padding .35s var(--sh-ease);
 }
+/* 拖拽中临时加厚底色：此刻 iOS 模糊可能因 transform 短暂失效，
+   加厚保证玻璃下文字不与玻璃文字重叠、仍可读（滚动态本身已用 strong 底色） */
+.sh-bar.sh-drag { --sh-tint: rgba(244, 243, 239, .5); }
+:root[data-theme="dark"] .sh-bar.sh-drag { --sh-tint: rgba(18, 16, 13, .58); }
 /* 拖过吸附阈值：描边微亮信号色 + 光斑增强，提示"松手将吸附到底/顶" */
 .sh-bar.sh-dock-hint {
     border-color: color-mix(in srgb, var(--sh-signal) 45%, transparent);
@@ -476,8 +493,8 @@
         animation: none !important;
         transition-duration: .001ms !important;
     }
-    /* 去掉一切拖拽位移与形变，但保留顶/底吸附锚点 --dock */
-    .sh-bar { transform: translateY(var(--dock, 0px)) !important; }
+    /* 去掉一切拖拽位移与形变；顶/底吸附锚点在 .sh-root 的 top 上，不受影响 */
+    .sh-bar { transform: none !important; }
     .sh-toggle { transform: none !important; }
 }
 

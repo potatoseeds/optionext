@@ -119,9 +119,23 @@
         inset 0 1px 0 var(--mt-highlight),
         inset 0 -1px 2px var(--mt-underglow),
         inset 0 0 14px var(--mt-inner);
-    /* 渐近橡皮筋拽拉 + 液态形变（变量 rAF 写入），松手 --mt-spring 回弹。
-       姿态只用刚体 rotate（受力侧先沉）+ 均匀缩放，不用 skew——
-       skewX/skewY 是平行四边形剪切，视觉上把玻璃"斜向拉长"，方向感全错 */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    /* 玻璃表面的触摸完全交给拖拽：否则真机上垂直拖会触发页面滚动并被 pointercancel 打断 */
+    touch-action: none;
+    cursor: grab;
+    /* 静止态【绝不带 transform】：iOS Safari/WKWebView 中 backdrop-filter 元素
+       自身存在非 none transform（含 translate3d(0,0,0)）会令模糊采样失效。
+       transform 链只在交互期 .mt-live 上出现，松手回弹结束即摘除 */
+    transition:
+        background .4s var(--mt-ease),
+        box-shadow .4s var(--mt-ease),
+        border-color .4s var(--mt-ease);
+}
+/* 交互期（pointerdown 起、回弹结束止）才挂 transform + 弹簧过渡 */
+.mt-card.mt-live,
+.mt-theme.mt-live {
     transform:
         translate3d(var(--dx, 0px), var(--dy, 0px), 0)
         rotate(var(--rot, 0deg))
@@ -133,22 +147,22 @@
         box-shadow .4s var(--mt-ease),
         border-color .4s var(--mt-ease),
         transform .62s var(--mt-spring);
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    /* 玻璃表面的触摸完全交给拖拽：否则真机上垂直拖会触发页面滚动并被 pointercancel 打断 */
-    touch-action: none;
-    cursor: grab;
 }
 .mt-card.mt-drag,
 .mt-theme.mt-drag { cursor: grabbing; }
-/* 拖拽中独立成层 + 冻结自身过渡，位移 1:1 跟手 */
+/* 拖拽中独立成层 + 冻结 transform 过渡，位移 1:1 跟手 */
 .mt-card.mt-drag,
 .mt-theme.mt-drag {
     will-change: transform;
     transition: background .4s var(--mt-ease), box-shadow .4s var(--mt-ease),
                 border-color .4s var(--mt-ease);
 }
+/* 拖拽中临时加厚底色：此刻 iOS 模糊可能因 transform 短暂失效，
+   加厚可保证玻璃下文字不与玻璃文字重叠、仍可读 */
+.mt-card.mt-drag,
+.mt-theme.mt-drag { --mt-tint: rgba(244, 243, 239, .5); }
+:root[data-theme="dark"] .mt-card.mt-drag,
+:root[data-theme="dark"] .mt-theme.mt-drag { --mt-tint: rgba(18, 16, 13, .58); }
 @supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
     .mt-card, .mt-theme { background: var(--mt-paper-solid2); }
 }
