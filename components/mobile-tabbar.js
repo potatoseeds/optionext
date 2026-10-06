@@ -111,6 +111,8 @@
     function norm(p) { return p.replace(/(index|mobile)\.html$/i, ''); }
     var here = norm(location.pathname);
 
+    var itemRefs = [];
+
     function isActive(item) {
         if (item.href === '#' || item.href.charAt(0) !== '/') return false;
         var tp = norm(new URL(resolve(item.href)).pathname);
@@ -118,18 +120,28 @@
         return tp === here || (!item.root && tp.length > 1 && here.indexOf(tp) === 0);
     }
 
+    /* 软导航换页后只重刷红点（page-transit.js 派发事件），底栏节点不重建 */
+    function refreshActive() {
+        here = norm(location.pathname);
+        itemRefs.forEach(function (n) {
+            var on = isActive(n.item);
+            n.el.classList.toggle('mt-active', on);
+            if (on) n.el.setAttribute('aria-current', 'page');
+            else n.el.removeAttribute('aria-current');
+        });
+    }
+
     NAV.forEach(function (item) {
         var a = document.createElement('a');
         a.className = 'mt-item';
         a.href = resolve(item.href);
-        if (isActive(item)) {
-            a.classList.add('mt-active');
-            a.setAttribute('aria-current', 'page');
-        }
         a.innerHTML =
             '<span class="mt-cn">' + item.cn + '</span>';
         card.appendChild(a);
+        itemRefs.push({ el: a, item: item });
     });
+    refreshActive();
+    window.addEventListener('optionext:locationchange', refreshActive);
 
     /* ============================================================
        主题切换（与 site-header 同一逻辑）

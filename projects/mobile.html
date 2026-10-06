@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
+    <style data-page="projects">
         /* ============================================================
            OPTIONEXT · 项目页（移动）· 纯内容页
            无字符矩阵 / 无点阵：矩阵品牌秀只属于主页；本页只承载项目
@@ -204,5 +204,7 @@
     </main>
 
     <script src="../components/mobile-tabbar.js"></script>
+    <!-- 软导航：底栏保活 + 主体淡入淡出（必须在底栏组件之后） -->
+    <script src="../components/page-transit.js"></script>
 </body>
 </html>

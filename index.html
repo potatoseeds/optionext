@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
+    <style data-page="home">
         /* ============================================================
            OPTIONEXT · ASCII 矩阵界面系统 03
            双主题（明 / 暗）· 整幅字符矩阵 · 代码生成图标 · 横向冲击波
@@ -335,9 +335,16 @@
         </section>
     </main>
 
-    <script>
+    <script data-page-script>
     (function () {
         'use strict';
+
+        /* 软导航（page-transit.js）：先停掉上一页仍在运行的引擎，再初始化本页 */
+        if (typeof window.__optionextPageStop === 'function') {
+            try { window.__optionextPageStop(); } catch (e) {}
+            window.__optionextPageStop = null;
+        }
+        var dead = false;
 
         /* ============================================================
            常量 / 字符集
@@ -862,44 +869,63 @@
 
         /* ---------------- 主循环（hero 离开视口自动挂帧省电） ---------------- */
         var heroVisible = true;
+        var io = null;
+        var rafId = 0;
         if ('IntersectionObserver' in window) {
-            new IntersectionObserver(function (es) { heroVisible = es[0].isIntersecting; })
-                .observe(heroEl);
+            io = new IntersectionObserver(function (es) { heroVisible = es[0].isIntersecting; });
+            io.observe(heroEl);
         }
         function loop(now) {
-            requestAnimationFrame(loop);
+            if (dead) return;                  // 软导航离开后不再续帧
+            rafId = requestAnimationFrame(loop);
             if (heroVisible) render(settleNow ? 100000 : now - started);
         }
 
-        /* 主题切换：颜色实时跟随 CSS 令牌 */
-        window.addEventListener('optionext:themechange', function () {
+        /* 主题切换：颜色实时跟随 CSS 令牌（具名以便离开时摘除） */
+        function onTheme() {
             var nt = readTheme();
             INK = nt.ink; SIG = nt.sig; PAPER = nt.paper;
             sprites = {};
             preheat();
-        });
+        }
+        window.addEventListener('optionext:themechange', onTheme);
 
-        /* ---------------- resize / 字体加载 ---------------- */
+        /* ---------------- resize / 字体加载（具名以便离开时摘除） ---------------- */
         var resizeTimer;
-        window.addEventListener('resize', function () {
+        function onResize() {
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
+                if (dead) return;
                 settleNow = performance.now() - started > IDLE_AT;
                 build();
             }, 140);
-        });
-        window.addEventListener('load', function () { calcQuiet(); });
+        }
+        function onLoad() { calcQuiet(); }
+        window.addEventListener('resize', onResize);
+        window.addEventListener('load', onLoad);
+
+        /* 软导航停机协议：停循环、断观察、摘窗口监听（heroEl 随旧 main 一并销毁） */
+        window.__optionextPageStop = function () {
+            dead = true;
+            if (rafId) cancelAnimationFrame(rafId);
+            if (io) io.disconnect();
+            window.removeEventListener('optionext:themechange', onTheme);
+            window.removeEventListener('resize', onResize);
+            window.removeEventListener('load', onLoad);
+        };
 
         build();
         if (reduced) {
             settleNow = true;
             render(100000);
         } else {
-            requestAnimationFrame(loop);
+            rafId = requestAnimationFrame(loop);
         }
     })();
     </script>
     <!-- 站点页眉组件（路径自解析，子目录页面同样可引用） -->
     <script src="components/site-header.js"></script>
+    <!-- 软导航：页眉保活 + 主体淡入淡出（必须在页眉组件之后） -->
+    <script src="components/page-transit.js"></script>
 </body>
 </html>

@@ -122,6 +122,7 @@
     var toggle = root.querySelector('.sh-toggle');
     var logoImg = root.querySelector('.sh-brand img');
     var here = location.pathname.replace(/index\.html$/, '');
+    var navRefs = [];
 
     function isActive(item) {
         if (item.href === '#' || item.href.charAt(0) !== '/') return false;
@@ -131,19 +132,30 @@
         return tp === here || (!item.root && tp.length > 1 && here.indexOf(tp) === 0);
     }
 
+    /* 软导航换页后只重刷红点（page-transit.js 派发事件），页眉节点不重建 */
+    function refreshActive() {
+        here = location.pathname.replace(/index\.html$/, '');
+        navRefs.forEach(function (n) {
+            n.d.classList.toggle('sh-active', isActive(n.item));
+            n.m.classList.toggle('sh-active', isActive(n.item));
+        });
+    }
+
     NAV.forEach(function (item) {
         var a = document.createElement('a');
         a.href = resolve(item.href);
-        if (isActive(item)) a.className = 'sh-active';
         a.innerHTML = '<span class="sh-cn">' + item.cn + '</span>' + item.en;
         navDesk.appendChild(a);
 
         var m = document.createElement('a');
         m.href = resolve(item.href);
-        if (isActive(item)) m.className = 'sh-active';
         m.innerHTML = '<span class="sh-cn">' + item.cn + '</span><span class="sh-en">' + item.en + '</span>';
         navMob.appendChild(m);
+
+        navRefs.push({ d: a, m: m, item: item });
     });
+    refreshActive();
+    window.addEventListener('optionext:locationchange', refreshActive);
 
     /* ---------- 主题：落地 + 同步外观 ---------- */
     function syncThemeUI() {
