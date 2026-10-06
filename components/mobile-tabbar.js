@@ -30,9 +30,11 @@
 
     /* ---------- 导航配置（后续直接改这里） ----------
        href 以 '/' 开头表示相对站点根，其余按字面值使用 */
+    /* root:true = 站点首页栏目，仅精确匹配高亮（否则子路径部署时
+       根路径是一切页面的前缀，会导致首页项在每个页面都亮红点） */
     var NAV = [
-        { cn: '团队介绍', href: '/mobile.html' },
-        { cn: '项目',     href: '/projects-m.html' }
+        { cn: '团队介绍', href: '/mobile.html',           root: true },
+        { cn: '项目',     href: '/projects/mobile.html' }
     ];
 
     function resolve(href) {
@@ -112,7 +114,8 @@
     function isActive(item) {
         if (item.href === '#' || item.href.charAt(0) !== '/') return false;
         var tp = norm(new URL(resolve(item.href)).pathname);
-        return tp === here || (tp.length > 1 && here.indexOf(tp) === 0);
+        // 非首页栏目允许前缀匹配（栏目目录下的详情页仍高亮该栏目）
+        return tp === here || (!item.root && tp.length > 1 && here.indexOf(tp) === 0);
     }
 
     NAV.forEach(function (item) {

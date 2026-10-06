@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Optionext · 项目</title>
+    <script src="../components/device-guard.js"></script>
+    <script>
+        /* 主题防闪烁：早于一切渲染确定“明 / 暗”另一半 */
+        (function () {
+            try {
+                var t = localStorage.getItem('optionext-theme') ||
+                    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.dataset.theme = t;
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================================
+           OPTIONEXT · 项目页（移动）· 纯内容页
+           无字符矩阵 / 无点阵：矩阵品牌秀只属于主页；本页只承载项目
+           ============================================================ */
+        :root {
+            --paper: #f4f3ef;
+            --ink: #141310;
+            --ink-rgb: 20, 19, 16;
+            --ink-70: rgba(20, 19, 16, .72);
+            --ink-45: rgba(20, 19, 16, .42);
+            --ink-25: rgba(20, 19, 16, .22);
+            --signal: #df3b2a;
+            --font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+            --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+            --ease-out: cubic-bezier(.22, 1, .36, 1);
+        }
+
+        :root[data-theme="dark"] {
+            --paper: #0f0e0c;
+            --ink: #e9e7e1;
+            --ink-rgb: 233, 231, 225;
+            --ink-70: rgba(233, 231, 225, .72);
+            --ink-45: rgba(233, 231, 225, .45);
+            --ink-25: rgba(233, 231, 225, .22);
+            --signal: #ef4d3a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { -webkit-text-size-adjust: 100%; }
+
+        body {
+            background: var(--paper);
+            color: var(--ink);
+            font-family: var(--font-sans);
+            font-size: 16px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        ::selection { background: var(--ink); color: var(--paper); }
+        a { color: inherit; text-decoration: none; }
+
+        .mono {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--ink-70);
+        }
+
+        /* ============================================================
+           页面骨架（底部为固定 tabbar 预留空间）
+           ============================================================ */
+        .page {
+            padding: 56px 24px calc(108px + env(safe-area-inset-bottom));
+        }
+        .page-inner { max-width: 520px; margin: 0 auto; }
+
+        .page-head { margin-bottom: 36px; }
+        .page-head .kicker {
+            display: block;
+            margin-bottom: 12px;
+            opacity: 0;
+            animation: rise .7s var(--ease-out) .1s forwards;
+        }
+        .page-head h1 {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: .01em;
+            opacity: 0;
+            animation: rise .7s var(--ease-out) .22s forwards;
+        }
+        .page-head h1 .dot {
+            color: var(--signal);
+            font-family: var(--font-mono);
+            font-weight: 400;
+        }
+
+        /* ============================================================
+           项目索引：实线顶 + 虚线档案行（移动端纵向堆叠）
+           ============================================================ */
+        .registry {
+            border-top: 1px solid var(--ink-25);
+            opacity: 0;
+            animation: rise .7s var(--ease-out) .34s forwards;
+        }
+
+        /* 空状态：药柜尚空（有项目后整段移除即可） */
+        .registry-empty {
+            padding: 24px 2px;
+            border-bottom: 1px dotted var(--ink-25);
+        }
+        .registry-empty .re-tag {
+            display: block;
+            margin-bottom: 9px;
+            color: var(--ink-45);
+        }
+        .registry-empty .re-text {
+            font-size: 16px;
+            line-height: 1.85;
+            letter-spacing: .02em;
+            color: var(--ink-45);
+        }
+
+        /* 项目行：新增项目时按 HTML 注释模板复制启用（触屏箭头常显） */
+        .proj-row {
+            display: block;
+            padding: 24px 2px;
+            border-bottom: 1px dotted var(--ink-25);
+            color: var(--ink);
+        }
+        .proj-row .proj-meta {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: .14em;
+            color: var(--signal);
+            margin-bottom: 9px;
+        }
+        .proj-row .proj-meta .idx {
+            color: var(--ink-45);
+            margin-right: 9px;
+        }
+        .proj-row h3 {
+            display: inline;
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.85;
+            letter-spacing: .02em;
+        }
+        .proj-row .proj-arrow {
+            font-family: var(--font-mono);
+            color: var(--ink-45);
+            margin-left: 8px;
+        }
+        .proj-row:active h3 { color: var(--signal); }
+        .proj-row:focus-visible {
+            outline: 2px solid var(--signal);
+            outline-offset: 3px;
+        }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .001ms !important;
+            }
+            .page-head .kicker, .page-head h1, .registry { opacity: 1 !important; }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <div class="page-inner">
+            <header class="page-head">
+                <span class="kicker mono">02</span>
+                <h1>项目<span class="dot">.</span></h1>
+            </header>
+
+            <div class="registry">
+                <!-- —— 项目行模板：新增项目时取消注释并按行复制 ——
+                <a class="proj-row" href="#">
+                    <span class="proj-meta"><span class="idx">01</span>进行中</span>
+                    <h3>项目名称</h3><span class="proj-arrow" aria-hidden="true">→</span>
+                </a>
+                -->
+
+                <!-- 空状态：有首个项目后移除本行 -->
+                <div class="registry-empty">
+                    <span class="re-tag mono">暂无</span>
+                    <p class="re-text">药柜尚空，药方正在研磨中。</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../components/mobile-tabbar.js"></script>
+</body>
+</html>
