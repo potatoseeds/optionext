@@ -81,24 +81,24 @@
 .sh-root {
     position: fixed;
     top: 14px;
-    left: 50%;
-    /* --dock：锚点偏移（0=顶部，底部吸附=一屏高减去自身高）；--fy：纵向拖拽跟手位移 */
-    transform: translateX(-50%) translateY(calc(var(--dock, 0px) + var(--fy, 0px)));
+    /* left/right + margin auto 居中，【不带 transform】——iOS/WKWebView 中
+       backdrop-filter 元素的祖先有非 none transform 会使模糊采样失效；
+       纵向吸附/拖拽位移全部在玻璃本体 .sh-bar 上（--dock/--fy） */
+    left: 0;
+    right: 0;
+    margin: 0 auto;
     z-index: 1000;
     width: min(1200px, calc(100vw - 32px));
     font-family: var(--sh-font-sans);
-    /* backwards：入场只在 delay 前占第一帧，结束后把 transform 交还给上面的变量 */
+    /* backwards：入场结束后回归无 transform 基础态 */
     animation: sh-drop .7s var(--sh-ease) .1s backwards;
-    transition: transform .58s var(--sh-spring);   /* 顶/底吸附飞行 */
 }
-/* 拖拽中冻结飞行过渡，纵向位移 1:1 跟手 */
-.sh-root.sh-dragging { transition: none; }
 /* 吸附飞行途中隐藏光斑（锚点位置在变，光斑坐标会失真） */
 .sh-root.sh-flying .sh-sheen { opacity: 0 !important; }
 
 @keyframes sh-drop {
-    from { opacity: 0; transform: translate(-50%, -18px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(var(--dock, 0px)); }
+    from { opacity: 0; transform: translateY(-18px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 .sh-bar {
@@ -125,13 +125,12 @@
         inset 0 1px 0 var(--sh-highlight),
         inset 0 -1px 2px var(--sh-underglow),
         inset 0 0 14px var(--sh-inner);
-    /* 横向橡皮筋（--dx）+ 液态形变（变量由指针 rAF 写入）；
-       纵向吸附位移在 .sh-root 上（--fy/--dock），松手各自弹簧复位 */
+    /* --dx 横向橡皮筋；--dock 顶/底吸附锚点 + --fy 纵向跟手；
+       rotate 受力侧先沉；scaleX/Y 液态形变（变量由指针 rAF 写入，松手弹簧复位） */
     transform:
         translate3d(var(--dx, 0px), 0, 0)
+        translateY(calc(var(--dock, 0px) + var(--fy, 0px)))
         rotate(var(--rot, 0deg))
-        skewX(var(--skx, 0deg))
-        skewY(var(--sky, 0deg))
         scale(var(--sc, 1))
         scaleX(var(--sx, 1))
         scaleY(var(--sy, 1));
@@ -477,9 +476,9 @@
         animation: none !important;
         transition-duration: .001ms !important;
     }
-    /* 仍保留顶/底吸附位置，但去掉一切拖拽位移与形变 */
-    .sh-root { transform: translateX(-50%) translateY(var(--dock, 0px)) !important; }
-    .sh-bar, .sh-toggle { transform: none !important; }
+    /* 去掉一切拖拽位移与形变，但保留顶/底吸附锚点 --dock */
+    .sh-bar { transform: translateY(var(--dock, 0px)) !important; }
+    .sh-toggle { transform: none !important; }
 }
 
 /* 圆形扩散期间禁用一切属性过渡，避免与 View Transition 抢动画 */

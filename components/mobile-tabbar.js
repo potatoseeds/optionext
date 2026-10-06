@@ -230,32 +230,24 @@
 
                 if (!down || !moved || reduced) return;
                 var mx = px - startX, my = py - startY;
-                var horiz = Math.abs(mx) >= Math.abs(my);
                 var dx = asym(mx, maxX, tauX);
                 var dy = asym(my, maxY, tauY);
                 var p = Math.max(
                     clamp01(Math.abs(dx) / maxX),
                     clamp01(Math.abs(dy) / maxY)
                 );
+                /* —— 统一液态形变（任意方向同一套函数，不分支）——
+                   1) 缩放：x 恒胀 y 恒缩 → 横向拖变长变窄、纵向拖变短变粗。
+                   2) 旋转=绕中心力矩：按压点侧别 gxNorm × 垂直施力(dy/maxY)；
+                      水平拖力过中心轴不转，按下的那一侧随手势先沉/先抬（刚体 rotate）。 */
+                var tiltFull = Math.atan(edgeD / (rect.width / 2)) * 180 / Math.PI;
+                var rot = gxNorm * Math.max(-1, Math.min(1, dy / maxY)) * tiltFull;
+
                 glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
                 glass.style.setProperty('--dy', dy.toFixed(2) + 'px');
-                if (horiz) {
-                    glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
-                    glass.style.setProperty('--skx',
-                        (clamp01(Math.abs(dx) / maxX) * 4 * (mx < 0 ? -1 : 1)).toFixed(2) + 'deg');
-                    glass.style.setProperty('--sky', '0deg');
-                } else {
-                    /* 垂直拖：按下的那一侧跟随手指先沉（skewY 使 ux>0 处视觉下移，
-                       角度符号 = 拖动方向 × 按压点侧别；幅度按边缘位移反算） */
-                    var pv2 = clamp01(Math.abs(dy) / maxY);
-                    var tilt = (my < 0 ? -1 : 1) * gxNorm *
-                        Math.atan((pv2 * edgeD) / (rect.width / 2)) * 180 / Math.PI;
-                    glass.style.setProperty('--rot', '0deg');
-                    glass.style.setProperty('--skx', '0deg');
-                    glass.style.setProperty('--sky', tilt.toFixed(2) + 'deg');
-                }
-                glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));  // 拖向变长/变宽
-                glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));  // 横向变窄 / 纵向变短
+                glass.style.setProperty('--rot', rot.toFixed(2) + 'deg');
+                glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));
+                glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));
             }
             function release() {
                 if (!down) return;
@@ -263,7 +255,7 @@
                 armed = moved;
                 moved = false;
                 glass.classList.remove('mt-press', 'mt-drag');
-                ['--dx', '--dy', '--rot', '--skx', '--sky', '--sx', '--sy'].forEach(function (k) {
+                ['--dx', '--dy', '--rot', '--sx', '--sy'].forEach(function (k) {
                     glass.style.removeProperty(k);
                 });
                 if (raf) { cancelAnimationFrame(raf); raf = 0; }

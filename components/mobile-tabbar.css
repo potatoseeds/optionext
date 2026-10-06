@@ -74,22 +74,28 @@
 
 .mt-root {
     position: fixed;
-    left: 50%;
+    /* left/right + margin auto 居中：绝不能用 transform translateX(-50%)——
+       iOS Safari/WKWebView 中，backdrop-filter 元素的【祖先】带非 none transform
+       会导致玻璃模糊采样失效（只剩半透明底色，桌面浏览器无此 bug） */
+    left: 0;
+    right: 0;
+    margin: 0 auto;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
-    transform: translateX(-50%);
     z-index: 1000;
     /* 两件玻璃浮件并排：左卡片 / 右圆钮，间距 10px */
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     max-width: calc(100vw - 24px);
     font-family: var(--mt-font-sans);
-    animation: mt-rise .7s var(--mt-ease) .1s both;
+    /* backwards：入场结束后回归无 transform 的基础态（见上面注释） */
+    animation: mt-rise .7s var(--mt-ease) .1s backwards;
 }
 
 @keyframes mt-rise {
-    from { opacity: 0; transform: translate(-50%, 22px); }
-    to   { opacity: 1; transform: translate(-50%, 0); }
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ============================================================
@@ -113,12 +119,12 @@
         inset 0 1px 0 var(--mt-highlight),
         inset 0 -1px 2px var(--mt-underglow),
         inset 0 0 14px var(--mt-inner);
-    /* 渐近橡皮筋拽拉 + 液态形变（变量 rAF 写入），松手 --mt-spring 回弹 */
+    /* 渐近橡皮筋拽拉 + 液态形变（变量 rAF 写入），松手 --mt-spring 回弹。
+       姿态只用刚体 rotate（受力侧先沉）+ 均匀缩放，不用 skew——
+       skewX/skewY 是平行四边形剪切，视觉上把玻璃"斜向拉长"，方向感全错 */
     transform:
         translate3d(var(--dx, 0px), var(--dy, 0px), 0)
         rotate(var(--rot, 0deg))
-        skewX(var(--skx, 0deg))
-        skewY(var(--sky, 0deg))
         scale(var(--sc, 1))
         scaleX(var(--sx, 1))
         scaleY(var(--sy, 1));

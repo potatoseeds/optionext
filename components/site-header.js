@@ -275,7 +275,7 @@
     function dockGate() { return Math.min(220, window.innerHeight * 0.26); }
 
     function setDockVar() {
-        root.style.setProperty('--dock', docked ? dockOffset().toFixed(1) + 'px' : '0px');
+        glass.style.setProperty('--dock', docked ? dockOffset().toFixed(1) + 'px' : '0px');
     }
     function initDock() {
         try { docked = localStorage.getItem(DOCK_KEY) === 'bottom'; } catch (e) { docked = false; }
@@ -317,25 +317,21 @@
         var gate = dockGate();
         var ph = clamp(Math.abs(dx) / H_MAX, 0, 1);
         var pv = clamp(Math.abs(my) / gate, 0, 1);
-        var p = Math.max(ph, pv);                 // 形变程度 0..1
+        var p = Math.max(ph, pv);                 // 形变程度 0..1（一个函数，不分拖向）
+
+        /* —— 统一液态形变（任意拖拽方向同一套函数）——
+           1) 缩放：x 恒胀 y 恒缩。横向拖=变长变窄，纵向拖=变短变粗，无需分支。
+           2) 旋转=绕中心的力矩：水平力臂(按压点侧别 gxNorm) × 垂直施力(my/gate)。
+              水平拖时力的方向过条的中心轴、无力矩 → 自然不转；
+              按下的那一侧随垂直手势先沉/先抬（刚体 rotate，不是 skew 剪切）。 */
+        var tiltFull = Math.atan(V_EDGE / (r.width / 2)) * 180 / Math.PI;  // 拖满时的角（按边缘位移反算）
+        var rot = gxNorm * clamp(my / gate, -1, 1) * tiltFull;
 
         glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
-        if (horiz) {
-            glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
-            glass.style.setProperty('--skx', (ph * 4 * (mx < 0 ? -1 : 1)).toFixed(2) + 'deg');
-            glass.style.setProperty('--sky', '0deg');
-        } else {
-            /* 垂直拖：倾斜由受力点决定——按下的那一侧先沉（skewY 使 ux>0 处视觉下移，
-               故角度符号 = 拖动方向 × 按压点侧别）；角度按边缘目标位移反算，宽条也不会倾斜过度 */
-            var tilt = (my < 0 ? -1 : 1) * gxNorm *
-                Math.atan((pv * V_EDGE) / (r.width / 2)) * 180 / Math.PI;
-            glass.style.setProperty('--rot', '0deg');   // 清掉横向微小偏移对旋转的污染
-            glass.style.setProperty('--skx', '0deg');
-            glass.style.setProperty('--sky', tilt.toFixed(2) + 'deg');
-        }
-        glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));   // 拖向变长/变宽
-        glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));   // 横向变窄 / 纵向变短
-        root.style.setProperty('--fy', fy.toFixed(2) + 'px');
+        glass.style.setProperty('--rot', rot.toFixed(2) + 'deg');
+        glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));
+        glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));
+        glass.style.setProperty('--fy', fy.toFixed(2) + 'px');
 
         var willDock = !horiz && (docked ? my < -gate : my > gate);
         if (willDock !== armedHint) {
@@ -349,10 +345,9 @@
         armed = moved;
         var doDock = armedHint;
         moved = false; armedHint = false;
-        root.classList.remove('sh-dragging');                 // 恢复过渡
-        glass.classList.remove('sh-press', 'sh-drag', 'sh-dock-hint');
-        root.style.removeProperty('--fy');                    // fy 归零与 --dock 变更同帧 → 弹簧飞行
-        ['--dx', '--rot', '--skx', '--sky', '--sx', '--sy'].forEach(function (k) {
+        glass.classList.remove('sh-press', 'sh-drag', 'sh-dock-hint');  // 移除 sh-drag 即恢复弹簧过渡
+        glass.style.removeProperty('--fy');                   // fy 归零与 --dock 变更同帧 → 弹簧飞行
+        ['--dx', '--rot', '--sx', '--sy'].forEach(function (k) {
             glass.style.removeProperty(k);
         });
         if (doDock) commitDock(!docked);
@@ -372,8 +367,7 @@
         if (down && !moved && Math.hypot(px - startX, py - startY) > DRAG_GATE) {
             moved = true;
             if (!reduced) {
-                glass.classList.add('sh-drag');
-                root.classList.add('sh-dragging');   // 冻结飞行过渡，纵向 1:1 跟手
+                glass.classList.add('sh-drag');   // 冻结 transform 过渡，纵向 1:1 跟手
             }
         }
         schedule();
@@ -431,10 +425,10 @@
     window.addEventListener('resize', function () {
         rect = null;
         if (docked) {
-            root.classList.add('sh-dragging');
+            glass.classList.add('sh-drag');   // 瞬时更新 --dock，不飞行动画
             setDockVar();
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function () { root.classList.remove('sh-dragging'); }, 160);
+            resizeTimer = setTimeout(function () { glass.classList.remove('sh-drag'); }, 160);
         }
         schedule();
     });
