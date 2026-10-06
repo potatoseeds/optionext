@@ -211,10 +211,11 @@
             return (m < 0 ? -1 : 1) * max * (1 - Math.exp(-Math.abs(m) / tau));
         }
 
-        function bind(glass, maxX, tauX, maxY, tauY) {
+        function bind(glass, maxX, tauX, maxY, tauY, edgeD) {
             var down = false, moved = false, armed = false;
             var startX = 0, startY = 0;
             var px = 0, py = 0;
+            var gxNorm = 0;   // 按压点水平位置 -1..1：决定垂直拖时哪一侧先沉
             var raf = 0, rect = null;
 
             function schedule() {
@@ -238,15 +239,20 @@
                 );
                 glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
                 glass.style.setProperty('--dy', dy.toFixed(2) + 'px');
-                glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
                 if (horiz) {
+                    glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
                     glass.style.setProperty('--skx',
                         (clamp01(Math.abs(dx) / maxX) * 4 * (mx < 0 ? -1 : 1)).toFixed(2) + 'deg');
                     glass.style.setProperty('--sky', '0deg');
                 } else {
+                    /* 垂直拖：按下的那一侧跟随手指先沉（skewY 使 ux>0 处视觉下移，
+                       角度符号 = 拖动方向 × 按压点侧别；幅度按边缘位移反算） */
+                    var pv2 = clamp01(Math.abs(dy) / maxY);
+                    var tilt = (my < 0 ? -1 : 1) * gxNorm *
+                        Math.atan((pv2 * edgeD) / (rect.width / 2)) * 180 / Math.PI;
+                    glass.style.setProperty('--rot', '0deg');
                     glass.style.setProperty('--skx', '0deg');
-                    glass.style.setProperty('--sky',
-                        (clamp01(Math.abs(dy) / maxY) * 3 * (my < 0 ? -1 : 1)).toFixed(2) + 'deg');
+                    glass.style.setProperty('--sky', tilt.toFixed(2) + 'deg');
                 }
                 glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));  // 拖向变长/变宽
                 glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));  // 横向变窄 / 纵向变短
@@ -268,6 +274,8 @@
                 startX = px = x;
                 startY = py = y;
                 rect = glass.getBoundingClientRect();
+                var cx = rect.left + rect.width / 2, w2 = rect.width / 2 || 1;
+                gxNorm = Math.max(-1, Math.min(1, (x - cx) / w2));
                 glass.classList.add('mt-press');
                 schedule();
             }
@@ -334,9 +342,9 @@
         }
 
         /* 卡片：横向可渐近到 46px（手划到屏幕另一端时），纵向 30px；
-           圆钮更小：26 / 18px */
-        bind(card, 46, 130, 30, 110);
-        bind(themeBtn, 26, 110, 18, 90);
+           圆钮更小：26 / 18px。edgeD=垂直拖满时受力侧边缘额外下沉量 */
+        bind(card, 46, 130, 30, 110, 10);
+        bind(themeBtn, 26, 110, 18, 90, 5);
     })();
 
     /* ---------- 挂载 ---------- */

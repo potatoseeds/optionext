@@ -261,7 +261,9 @@
     var down = false, moved = false, armed = false, armedHint = false;
     var startX = 0, startY = 0;
     var px = 0, py = 0;
+    var gxNorm = 0;                   // 按压点水平位置：-1=左端 0=中 +1=右端（决定垂直拖时哪一侧先沉）
     var raf = 0, rect = null;
+    var V_EDGE = 16;                  // 垂直拖满时，受力侧边缘相对中心的最大额外下沉 px
 
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
     /* 渐近橡皮筋：手位移 m 再大，控件位移也只趋近 max（斜率随距离衰减） */
@@ -318,13 +320,18 @@
         var p = Math.max(ph, pv);                 // 形变程度 0..1
 
         glass.style.setProperty('--dx', dx.toFixed(2) + 'px');
-        glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
         if (horiz) {
+            glass.style.setProperty('--rot', (dx * 0.12).toFixed(2) + 'deg');
             glass.style.setProperty('--skx', (ph * 4 * (mx < 0 ? -1 : 1)).toFixed(2) + 'deg');
             glass.style.setProperty('--sky', '0deg');
         } else {
+            /* 垂直拖：倾斜由受力点决定——按下的那一侧先沉（skewY 使 ux>0 处视觉下移，
+               故角度符号 = 拖动方向 × 按压点侧别）；角度按边缘目标位移反算，宽条也不会倾斜过度 */
+            var tilt = (my < 0 ? -1 : 1) * gxNorm *
+                Math.atan((pv * V_EDGE) / (r.width / 2)) * 180 / Math.PI;
+            glass.style.setProperty('--rot', '0deg');   // 清掉横向微小偏移对旋转的污染
             glass.style.setProperty('--skx', '0deg');
-            glass.style.setProperty('--sky', (pv * 3 * (my < 0 ? -1 : 1)).toFixed(2) + 'deg');
+            glass.style.setProperty('--sky', tilt.toFixed(2) + 'deg');
         }
         glass.style.setProperty('--sx', (1 + p * 0.05).toFixed(3));   // 拖向变长/变宽
         glass.style.setProperty('--sy', (1 - p * 0.05).toFixed(3));   // 横向变窄 / 纵向变短
@@ -356,6 +363,7 @@
         down = true; moved = false; armedHint = false;
         startX = px = x; startY = py = y;
         rect = glass.getBoundingClientRect();
+        gxNorm = clamp((x - (rect.left + rect.width / 2)) / (rect.width / 2), -1, 1);
         glass.classList.add('sh-press');
         schedule();
     }
