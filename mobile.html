@@ -115,12 +115,31 @@
             align-items: center;
         }
 
+        /* 品牌字标（竖版：明底黑字 / 暗底白字各一张） */
+        .hero-wordmark {
+            width: min(15vw, 60px);
+            margin: 0 auto 18px;
+            opacity: 0;
+            animation: rise .85s var(--ease-out) 1.3s forwards;
+        }
+        .hero-wordmark img {
+            display: block;
+            width: 182.6%;
+            height: auto;
+            max-width: none;
+            /* 抵消 400×1000 画布留白（bbox L102 R321 T56 B890），只留笔画 */
+            margin: -25.6% 0 -50.2% -46.6%;
+        }
+        .hero-wordmark .wm-dark { display: none; }
+        :root[data-theme="dark"] .hero-wordmark .wm-light { display: none; }
+        :root[data-theme="dark"] .hero-wordmark .wm-dark { display: block; }
+
         h1 {
             font-size: clamp(27px, 8.4vw, 37px);
             font-weight: 700;
             line-height: 1.15;
             letter-spacing: .01em;
-            margin-bottom: 18px;
+            margin-bottom: 26px;
             white-space: nowrap;
         }
         h1 .line { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
@@ -138,16 +157,6 @@
             font-weight: 400;
         }
 
-        .lead {
-            font-size: 14px;
-            line-height: 1.85;
-            color: var(--ink-70);
-            margin-bottom: 30px;
-            opacity: 0;
-            animation: rise .8s var(--ease-out) 1.88s forwards;
-        }
-        .lead b { font-weight: 500; color: var(--ink); }
-
         .actions {
             display: flex;
             flex-direction: column;
@@ -155,7 +164,7 @@
             gap: 17px;
             width: 100%;
             opacity: 0;
-            animation: rise .8s var(--ease-out) 2.02s forwards;
+            animation: rise .8s var(--ease-out) 1.86s forwards;
         }
 
         .btn-primary {
@@ -207,7 +216,7 @@
         }
 
         /* ============================================================
-           结构区：团队介绍（纵向重排）
+           结构区：药铺台账（四条同字号档案行）
            ============================================================ */
         .structure {
             padding: 66px 24px 84px;
@@ -224,45 +233,33 @@
         }
         .structure-head .rule { flex: 1; height: 1px; background: var(--ink-25); }
 
-        .team-statement {
-            font-size: 18px;
-            line-height: 1.7;
-            color: var(--ink);
-            font-weight: 500;
-            margin-bottom: 26px;
-        }
-        .team-prose p {
-            font-size: 14.5px;
-            line-height: 1.95;
-            color: var(--ink-70);
-            margin-bottom: 20px;
-        }
-        .team-prose p:last-child { margin-bottom: 34px; }
-        .team-prose b { font-weight: 700; color: var(--ink); }
-
-        /* 药谱台账：名号 / 口号 / 理念 */
-        .team-ledger {
-            border: 1px solid var(--ink-12);
-            border-radius: 18px;
-            background: rgba(var(--ink-rgb), .03);
-            padding: 4px 22px;
-        }
-        .team-row {
-            padding: 20px 0;
+        .ledger { border-top: 1px solid var(--ink-25); }
+        .ledger-row {
+            padding: 22px 2px;
             border-bottom: 1px dotted var(--ink-25);
         }
-        .team-row:last-child { border-bottom: 0; }
-        .team-row dt {
+        .ledger-row:last-child { border-bottom: 0; }
+        .ledger-row dt {
+            display: flex;
+            align-items: baseline;
+            gap: 9px;
             font-family: var(--font-mono);
             font-size: 10.5px;
-            letter-spacing: .16em;
+            letter-spacing: .14em;
             color: var(--signal);
-            margin-bottom: 8px;
+            margin-bottom: 9px;
         }
-        .team-row dd {
-            font-size: 14px;
-            line-height: 1.8;
+        .ledger-row dt .idx { color: var(--ink-45); }
+        .ledger-row dd {
+            font-size: 16px;
+            line-height: 1.85;
+            letter-spacing: .02em;
             color: var(--ink);
+        }
+        .ledger-row dd .ledger-dot {
+            color: var(--signal);
+            font-family: var(--font-mono);
+            font-weight: 400;
         }
 
         /* ---------------- 动效 ---------------- */
@@ -280,7 +277,7 @@
                 animation-iteration-count: 1 !important;
                 transition-duration: .001ms !important;
             }
-            .lead, .actions { opacity: 1 !important; }
+            .hero-wordmark, .actions { opacity: 1 !important; }
             h1 .line > span { opacity: 1 !important; transform: none !important; }
         }
     </style>
@@ -293,13 +290,14 @@
 
             <div class="hero-copy">
                 <div class="hero-copy-inner">
+                    <div class="hero-wordmark" role="img" aria-label="药铺子">
+                        <img class="wm-light" src="image/%E5%AD%97%E6%A0%87%E7%AB%96%E7%89%88%E9%BB%91.png" width="400" height="1000" alt="" fetchpriority="high">
+                        <img class="wm-dark" src="image/%E5%AD%97%E6%A0%87%E7%AB%96%E7%89%88%E7%99%BD.png" width="400" height="1000" alt="" aria-hidden="true" fetchpriority="high">
+                    </div>
+
                     <h1>
                         <span class="line"><span>开方未来的可能<span class="dot">.</span></span></span>
                     </h1>
-
-                    <p class="lead">
-                        <b>团队理念</b> —— 在未来的无限种可能中，像在药铺之中开方一样，熟练地应对下一步操作。
-                    </p>
 
                     <div class="actions">
                         <a class="btn-primary" href="#team">
@@ -314,49 +312,30 @@
 
         <div class="dot-band" aria-hidden="true"></div>
 
-        <!-- ================= 团队介绍 ================= -->
+        <!-- ================= 药铺台账 ================= -->
         <section class="structure" id="team">
             <div class="structure-inner">
                 <div class="structure-head">
                     <span class="mono">01</span>
-                    <h2>团队介绍</h2>
+                    <h2>药铺台账</h2>
                     <span class="rule" aria-hidden="true"></span>
                 </div>
 
-                <div class="team-prose">
-                    <p class="team-statement">
-                        Optionext 药铺子 —— 一支相信「下一步」可以被熟练应对的团队。
-                    </p>
-                    <p>
-                        我们的名字由 <b>Option</b> 与 <b>next</b> 合成：Option
-                        是未来摊开的无限种可能，ext 是当下迈出的下一步。未来从不只有
-                        一个答案，真正要紧的，是在岔路口保持镇定——认出症候、理清头绪，
-                        然后稳稳地抓好药、开对方。
-                    </p>
-                    <p>
-                        「在未来的无限种可能中，像在药铺之中开方一样，熟练地应对下一步操作。」
-                        这是我们的团队理念。像老药铺对待每一位求医之人那样对待每一件事：
-                        先看清，再下手；药材地道、分量清楚、方子可查，不凭侥幸，也不尚空谈。
-                    </p>
-                    <p>
-                        我们相信，秩序感不是束缚，而是应对变化的底气。抽屉贴着标签，
-                        药斗归着药材，再陌生的状况也能一步步拆解成熟练的动作。把复杂留给
-                        系统，把清晰留给判断——在每一次从容开方之间，把未来的可能一点点
-                        做出来。
-                    </p>
-                </div>
-
-                <dl class="team-ledger">
-                    <div class="team-row">
-                        <dt>名号</dt>
-                        <dd>药铺子 · Optionext</dd>
+                <dl class="ledger">
+                    <div class="ledger-row">
+                        <dt><span class="idx">01</span>中文名</dt>
+                        <dd>药铺子</dd>
                     </div>
-                    <div class="team-row">
-                        <dt>口号</dt>
-                        <dd>开方未来的可能</dd>
+                    <div class="ledger-row">
+                        <dt><span class="idx">02</span>英文名</dt>
+                        <dd>Optionext</dd>
                     </div>
-                    <div class="team-row">
-                        <dt>理念</dt>
+                    <div class="ledger-row">
+                        <dt><span class="idx">03</span>口号</dt>
+                        <dd>开方未来的可能<span class="ledger-dot">.</span></dd>
+                    </div>
+                    <div class="ledger-row">
+                        <dt><span class="idx">04</span>理念</dt>
                         <dd>在未来的无限种可能中，像在药铺之中开方一样，熟练地应对下一步操作。</dd>
                     </div>
                 </dl>
