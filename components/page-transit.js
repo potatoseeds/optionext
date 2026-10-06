@@ -40,6 +40,10 @@
 
     var busy = false;
 
+    /* 当前已渲染文档的路径（不含 hash）。
+       点击 <a href="#xxx"> 产生的 popstate 只改 hash，据此识别并放行 */
+    var docPath = location.pathname + location.search;
+
     /* ---------------- 过渡样式（只注入一次） ---------------- */
     var style = document.createElement('style');
     style.textContent =
@@ -110,11 +114,21 @@
         });
 
         /* 4) 标题 / 历史 / 滚动位 */
+        var targetUrl;
+        try { targetUrl = new URL(href, location.href); } catch (e) { targetUrl = null; }
+
         if (doc.title) document.title = doc.title;
         if (push !== false) {
             try { history.pushState({ optionextTransit: 1 }, '', href); } catch (e) {}
         }
-        window.scrollTo(0, 0);
+        docPath = targetUrl ? targetUrl.pathname + targetUrl.search : docPath;
+
+        /* 目标带 hash（如 projects/x.html#sec）：换页后落到对应锚点；否则回顶 */
+        var hashEl = targetUrl && targetUrl.hash
+            ? document.getElementById(targetUrl.hash.slice(1))
+            : null;
+        if (hashEl) hashEl.scrollIntoView();
+        else window.scrollTo(0, 0);
 
         /* 5) 页眉 / 底栏刷新红点（节点本身不重建） */
         window.dispatchEvent(new CustomEvent('optionext:locationchange'));
@@ -175,9 +189,12 @@
         go(url.href, true);
     });
 
-    /* ---------------- 前进 / 后退 ---------------- */
+    /* ---------------- 前进 / 后退 ----------------
+       注意：点击页内 <a href="#xxx"> 是同源文档内跳转，浏览器同样会派发
+       popstate —— 这种只改 hash 的情况必须放行，交给原生锚点行为 */
     window.addEventListener('popstate', function () {
         if (busy) return;
+        if (location.pathname + location.search === docPath) return;
         go(location.href, false);
     });
 })();
