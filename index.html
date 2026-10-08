@@ -254,6 +254,11 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* 软导航重入本页：hero 不播入场动画，立即就位（JS 给 .hero 加 .hero-in） */
+        .hero.hero-in .hero-wordmark,
+        .hero.hero-in .actions { opacity: 1; animation: none; }
+        .hero.hero-in h1 .line > span { opacity: 1; transform: none; animation: none; }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
                 animation-duration: .001ms !important;
@@ -344,33 +349,6 @@
                 </dl>
             </div>
         </section>
-        <script>
-            /* 群号与官方加群链接均分段存放，运行时拼接，源码中不留明文 */
-            (function () {
-                var groupNo = ['11', '240', '69', '616'].join('');
-                var groupEl = document.querySelector('[data-qq-group]');
-                if (groupEl) { groupEl.textContent = groupNo; }
-
-                /* 一键加群 k / authKey 分段，主机名亦拆开拼接 */
-                var k = ['tOqG6I8j', 'rqGJEt0on_', 'Ttd3jKDFl', 'PS5b6'].join('');
-                var auth = ['GuyQO40iON1ilaaI6z', '/foxyTzSJkOUon7zr',
-                    '/mFgftO/gyHFHz', 'JXf7XHbpu3Mx5+z'].join('');
-                var joinUrl = ['https://', 'qm.', 'qq.', 'com', '/cgi-bin/qm/qr?k='].join('')
-                    + k + '&jump_from=webapi&authKey=' + auth;
-
-                function openJoin(e) {
-                    e.preventDefault();
-                    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-                    if (coarse) { window.location.href = joinUrl; }
-                    else { window.open(joinUrl, '_blank', 'noopener'); }
-                }
-
-                var targets = document.querySelectorAll('[data-qq-launch]');
-                for (var i = 0; i < targets.length; i++) {
-                    targets[i].addEventListener('click', openJoin);
-                }
-            }());
-        </script>
     </main>
 
     <script data-page-script>
@@ -382,6 +360,46 @@
             try { window.__optionextPageStop(); } catch (e) {}
             window.__optionextPageStop = null;
         }
+
+        /* ============================================================
+           联系方式（QQ群）：群号与官方加群链接分段存放、运行时拼接，
+           源码不留明文。此段必须放在 data-page-script 内——软导航换页
+           后只有本脚本会被重跑，独立内联 script 不执行（群号会空、
+           点击无响应）
+           ============================================================ */
+        (function () {
+            var groupNo = ['11', '240', '69', '616'].join('');
+            var groupEl = document.querySelector('[data-qq-group]');
+            if (groupEl) { groupEl.textContent = groupNo; }
+
+            var k = ['tOqG6I8j', 'rqGJEt0on_', 'Ttd3jKDFl', 'PS5b6'].join('');
+            var auth = ['GuyQO40iON1ilaaI6z', '/foxyTzSJkOUon7zr',
+                '/mFgftO/gyHFHz', 'JXf7XHbpu3Mx5+z'].join('');
+            var joinUrl = ['https://', 'qm.', 'qq.', 'com', '/cgi-bin/qm/qr?k='].join('')
+                + k + '&jump_from=webapi&authKey=' + auth;
+
+            function openJoin(e) {
+                e.preventDefault();
+                var coarse = window.matchMedia &&
+                    window.matchMedia('(pointer: coarse)').matches;
+                if (coarse) { window.location.href = joinUrl; }
+                else { window.open(joinUrl, '_blank', 'noopener'); }
+            }
+
+            var targets = document.querySelectorAll('[data-qq-launch]');
+            for (var i = 0; i < targets.length; i++) {
+                targets[i].addEventListener('click', openJoin);
+            }
+        }());
+
+        /* 整页首次加载保留 hero 入场动画；软导航重入本页时 hero 立即就位 */
+        if (window.__optionextHomeSeen) {
+            var heroEl = document.getElementById('hero');
+            if (heroEl) { heroEl.classList.add('hero-in'); }
+        } else {
+            window.__optionextHomeSeen = true;
+        }
+
         var dead = false;
 
         /* ============================================================
