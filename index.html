@@ -170,23 +170,10 @@
             border: 1px solid var(--ink);
             transition: background .35s var(--ease-out), color .35s var(--ease-out), transform .35s var(--ease-out);
         }
-        .btn-primary .arrow { transition: transform .35s var(--ease-out); }
         .btn-primary:hover { background: transparent; color: var(--ink); transform: translateY(-2px); }
-        .btn-primary:hover .arrow { transform: translateX(5px); }
-        .btn-primary:focus-visible, .btn-ghost:focus-visible {
+        .btn-primary:focus-visible {
             outline: 2px solid var(--signal); outline-offset: 3px;
         }
-
-        .btn-ghost {
-            font-family: var(--font-mono);
-            font-size: 13px;
-            letter-spacing: .12em;
-            color: var(--ink);
-            padding-bottom: 4px;
-            border-bottom: 1px dotted var(--ink-45);
-            transition: border-color .3s var(--ease-out), letter-spacing .3s var(--ease-out);
-        }
-        .btn-ghost:hover { border-bottom-style: solid; border-color: var(--ink); letter-spacing: .16em; }
 
         /* ============================================================
            点阵色带（halftone 分隔）
@@ -249,6 +236,14 @@
             font-family: var(--font-mono);
             font-weight: 400;
         }
+        .ledger-row dd .qq-no {
+            font-family: var(--font-mono);
+            font-size: clamp(18px, 1.6vw, 21px);
+            letter-spacing: .12em;
+            cursor: pointer;
+        }
+        .ledger-row dd .qq-no:hover { text-decoration: underline; text-underline-offset: 5px; }
+        .ledger-row dd .qq-no:active { opacity: .6; }
 
         /* ---------------- 动效 ---------------- */
         @keyframes rise {
@@ -293,11 +288,7 @@
                 </h1>
 
                 <div class="actions">
-                    <a class="btn-primary" href="#">
-                        开始了解
-                        <span class="arrow" aria-hidden="true">→</span>
-                    </a>
-                    <a class="btn-ghost mono" href="#">联系我们</a>
+                    <a class="btn-primary" data-qq-launch>联系我们</a>
                 </div>
             </div>
         </section>
@@ -333,6 +324,53 @@
                 </dl>
             </div>
         </section>
+
+        <div class="dot-band" aria-hidden="true"></div>
+
+        <!-- ================= 联系方式 ================= -->
+        <section class="structure" id="contact">
+            <div class="structure-inner">
+                <div class="structure-head">
+                    <span class="mono">02 / CONTACT</span>
+                    <h2>联系方式</h2>
+                    <span class="rule" aria-hidden="true"></span>
+                </div>
+
+                <dl class="ledger">
+                    <div class="ledger-row">
+                        <dt>QQ群1群 / GROUP</dt>
+                        <dd><span class="qq-no" data-qq-group data-qq-launch title="点击加入QQ群"></span></dd>
+                    </div>
+                </dl>
+            </div>
+        </section>
+        <script>
+            /* 群号与官方加群链接均分段存放，运行时拼接，源码中不留明文 */
+            (function () {
+                var groupNo = ['11', '240', '69', '616'].join('');
+                var groupEl = document.querySelector('[data-qq-group]');
+                if (groupEl) { groupEl.textContent = groupNo; }
+
+                /* 一键加群 k / authKey 分段，主机名亦拆开拼接 */
+                var k = ['tOqG6I8j', 'rqGJEt0on_', 'Ttd3jKDFl', 'PS5b6'].join('');
+                var auth = ['GuyQO40iON1ilaaI6z', '/foxyTzSJkOUon7zr',
+                    '/mFgftO/gyHFHz', 'JXf7XHbpu3Mx5+z'].join('');
+                var joinUrl = ['https://', 'qm.', 'qq.', 'com', '/cgi-bin/qm/qr?k='].join('')
+                    + k + '&jump_from=webapi&authKey=' + auth;
+
+                function openJoin(e) {
+                    e.preventDefault();
+                    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+                    if (coarse) { window.location.href = joinUrl; }
+                    else { window.open(joinUrl, '_blank', 'noopener'); }
+                }
+
+                var targets = document.querySelectorAll('[data-qq-launch]');
+                for (var i = 0; i < targets.length; i++) {
+                    targets[i].addEventListener('click', openJoin);
+                }
+            }());
+        </script>
     </main>
 
     <script data-page-script>
