@@ -253,6 +253,16 @@
         }
         .ledger-row dd .qq-no:active { opacity: .6; }
 
+        /* ---------------- 空板块占位（尚未录入内容） ---------------- */
+        .structure-empty {
+            margin: 0;
+            padding: 2px 2px;
+            color: var(--ink-45);
+            font-size: 14px;
+            letter-spacing: .04em;
+            line-height: 1.8;
+        }
+
         /* ---------------- 动效 ---------------- */
         @keyframes rise {
             from { opacity: 0; transform: translateY(22px); }
@@ -336,12 +346,27 @@
 
         <div class="dot-band" aria-hidden="true"></div>
 
-        <!-- ================= 联系方式 ================= -->
-        <section class="structure" id="contact">
+        <!-- ================= 药师名录 ================= -->
+        <section class="structure" id="directory">
             <div class="structure-inner">
                 <div class="structure-head">
                     <span class="mono">02</span>
-                    <h2>联系方式</h2>
+                    <h2>药师名录</h2>
+                    <span class="rule" aria-hidden="true"></span>
+                </div>
+
+                <p class="structure-empty">名录尚空，正在整理中。</p>
+            </div>
+        </section>
+
+        <div class="dot-band" aria-hidden="true"></div>
+
+        <!-- ================= 联系我们 ================= -->
+        <section class="structure" id="contact">
+            <div class="structure-inner">
+                <div class="structure-head">
+                    <span class="mono">03</span>
+                    <h2>联系我们</h2>
                     <span class="rule" aria-hidden="true"></span>
                 </div>
 
