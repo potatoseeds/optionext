@@ -5,10 +5,17 @@
 
    规则（PAIRS 桌面页 ↔ 移动页 配对表，路径相对站点根，
          同一栏目放在同一个子目录中，如 projects/index ↔ projects/mobile）：
+     每个页面在 <html data-flavor="desk|mob"> 自报版本。
      移动设备访问桌面页 → 跳转该页对应的移动页
      桌面设备访问移动页 → 跳转该页对应的桌面页
      移动设备访问未登记页面 → 兜底跳转移动首页 mobile.html
      桌面设备访问未登记页面 → 不干预
+
+   为什么信任 data-flavor 而不是 URL：软导航会把地址栏规范成目录
+   （/mobile.html 显示为 /），而 pageshow 复查晚于页面脚本——按 URL
+   推断会把"正确版本的文档"误判成错版，与地址规范化互相触发导致
+   无限刷新。文档自身标记与设备一致时，任何情况下都不跳。
+   另设跳转熔断：同一会话 10 秒内连续 3 次跳转即停止，双保险。
 
    目标地址以“自身脚本 URL”推导站点根目录（components 的上一级），
    GitHub Pages 任意深度子页面引用都能正确跳回根目录入口页。
@@ -51,18 +58,41 @@
         return rel;
     }
 
+    /* 跳转熔断：正常流程最多只跳一次。10 秒内连续 3 次说明环境异常
+       （服务器把文件名重定向掉等），立即停止，杜绝无限刷新 */
+    var DG_KEY = 'optionext-dg';
     function go(file) {
+        var now = Date.now();
+        try {
+            var n = 0;
+            var raw = sessionStorage.getItem(DG_KEY);
+            if (raw) {
+                var parts = raw.split('|');
+                var t0 = parseInt(parts[0], 10) || 0;
+                n = (now - t0 < 10000) ? (parseInt(parts[1], 10) || 0) : 0;
+            }
+            if (n >= 3) return;
+            sessionStorage.setItem(DG_KEY, now + '|' + (n + 1));
+        } catch (e) {}
         window.location.replace(new URL(file, ROOT).href);
     }
 
     function check() {
-        var rel = currentRel();
+        /* 文档自报版本（<html data-flavor>）：与设备一致就绝不跳转。
+           此时 URL 可能已被软导航规范成目录形式，不能再拿 URL 判版本 */
+        var flavor = document.documentElement.getAttribute('data-flavor');
         var mobile = isMobileDevice();
+        var want = mobile ? 'mob' : 'desk';
+        if (flavor === want) return;
 
+        /* 文档版本错配：按当前 URL 所属栏目，跳到该栏目的正确版本 */
+        var rel = currentRel();
         for (var i = 0; i < PAIRS.length; i++) {
             var p = PAIRS[i];
-            if (rel === p.desk) { if (mobile) go(p.mob); return; }
-            if (rel === p.mob)  { if (!mobile) go(p.desk); return; }
+            if (rel === p.desk || rel === p.mob) {
+                go(mobile ? p.mob : p.desk);
+                return;
+            }
         }
 
         // 未登记页面：移动设备兜底送移动首页；桌面设备保持当前页

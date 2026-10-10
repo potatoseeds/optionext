@@ -40,22 +40,50 @@
 
     var busy = false;
 
-    /* ---------------- 目录规范地址 ----------------
-       入口文件名不出现在地址栏：/index.html、/mobile.html 一律归一到
-       所在目录（'/' 或 '/projects/'，桌面页/移动页共用同一规范地址）。
-       前面必须带 '/'，避免误伤 fooindex.html 这类普通详情页。 */
+    /* ---------------- 真实文件 vs 显示地址 ----------------
+       网络层永远请求【真实文件】（index.html / mobile.html /
+       projects/mobile.html…），地址栏只显示目录形式（/、/projects/，
+       桌面/移动共用同一显示地址）。绝不能 fetch 裸目录——file:// 直开、
+       关闭目录索引、对 .html 做规范化跳转的服务器都会因此出错。
+       每个软导航历史条目把真实文件地址存在 history.state.f，
+       前进/后退时据此请求。
+       canonPath 前面必须带 '/'，避免误伤 fooindex.html 这类详情页。 */
+    var FLAVOR = document.documentElement.getAttribute('data-flavor') === 'mob'
+        ? 'mob' : 'desk';
+
     function canonPath(p) {
         return p.replace(/\/(index|mobile)\.html$/i, '/');
     }
 
-    /* 直接访问入口文件（含设备守卫跳转落地 mobile.html）时，
-       静默把地址栏整理成目录形式，不产生刷新、不新增历史条目 */
-    if (canonPath(location.pathname) !== location.pathname) {
-        try {
-            history.replaceState(history.state, '',
-                canonPath(location.pathname) + location.search + location.hash);
-        } catch (e) {}
+    /* 当前文档对应的真实文件地址（写入初始历史条目的 state.f） */
+    function currentRealHref() {
+        var p = location.pathname;
+        if (/\/(index|mobile)\.html$/i.test(p)) return location.href;
+        if (p.charAt(p.length - 1) === '/') {
+            return p + (FLAVOR === 'mob' ? 'mobile.html' : 'index.html') +
+                location.search + location.hash;
+        }
+        return location.href;   // 普通详情页：原样
     }
+
+    /* 落地整理：地址栏静默显示目录形式，真实文件地址存进 state.f。
+       纯 replaceState，不刷新、不新增历史条目（device-guard 信任
+       <html data-flavor>，不会因这个显示地址误跳） */
+    (function () {
+        var display = canonPath(location.pathname) + location.search + location.hash;
+        var st = {};
+        try { st = history.state || {}; } catch (e) {}
+        var need = !st.optionextTransit ||
+            st.f !== currentRealHref() ||
+            canonPath(location.pathname) !== location.pathname;
+        if (need) {
+            try {
+                history.replaceState(
+                    { optionextTransit: 1, f: currentRealHref() },
+                    '', display);
+            } catch (e) {}
+        }
+    })();
 
     /* 当前已渲染文档的规范路径（不含 hash）。
        点击 <a href="#xxx"> 产生的 popstate 只改 hash，据此识别并放行 */
@@ -135,16 +163,15 @@
         try { targetUrl = new URL(href, location.href); } catch (e) { targetUrl = null; }
 
         if (doc.title) document.title = doc.title;
-        /* 历史地址一律写目录规范形式（即使 fetch 的 href 带 index.html） */
+        /* 地址栏写目录规范形式；真实 fetch 地址（真实文件）存 state.f，
+           前进/后退靠它重新请求——绝不直接 fetch 裸目录 */
         var display = targetUrl
             ? canonPath(targetUrl.pathname) + targetUrl.search + targetUrl.hash
             : href;
         if (push !== false) {
-            try { history.pushState({ optionextTransit: 1 }, '', display); } catch (e) {}
-        } else if (display !== href) {
-            /* 前进/后退落到旧的 index.html 历史条目：顺手规范掉，不新增条目 */
-            try { history.replaceState(history.state, '', display); } catch (e) {}
+            try { history.pushState({ optionextTransit: 1, f: href }, '', display); } catch (e) {}
         }
+        /* push===false（前进/后退）：历史条目本就是本层写入的规范形式，不再动 */
         docPath = targetUrl ? canonPath(targetUrl.pathname) + targetUrl.search : docPath;
 
         /* 目标带 hash（如 projects/x.html#sec）：换页后落到对应锚点；否则回顶 */
@@ -208,19 +235,13 @@
 
         /* 同一页面（规范地址相同，忽略 /index.html 与 / 的字面差异）：
            · 指向不同锚点（#team 等）→ 交给浏览器原生锚点滚动；
-           · 重复点击当前栏目（无 hash 变化）→ 完全放行到这里为止：
-             不 fetch、不淡出、不重跑脚本，<main> 与页眉/底栏纹丝不动。
-           地址栏若还残留入口文件名，顺手静默规范掉 */
+           · 重复点击当前栏目 → preventDefault 后什么都不做：
+             不请求、不淡出、不重跑脚本，<main> 与页眉/底栏纹丝不动。
+           地址栏在落地时已规范，这里无需再动历史 */
         if (canonPath(url.pathname) === canonPath(location.pathname) &&
             url.search === location.search) {
             if (url.hash && url.hash !== location.hash) return;
             e.preventDefault();
-            if (canonPath(location.pathname) !== location.pathname) {
-                try {
-                    history.replaceState(history.state, '',
-                        canonPath(location.pathname) + location.search + location.hash);
-                } catch (e) {}
-            }
             return;
         }
 
@@ -231,9 +252,13 @@
     /* ---------------- 前进 / 后退 ----------------
        注意：点击页内 <a href="#xxx"> 是同源文档内跳转，浏览器同样会派发
        popstate —— 这种只改 hash 的情况必须放行，交给原生锚点行为 */
-    window.addEventListener('popstate', function () {
+    window.addEventListener('popstate', function (e) {
         if (busy) return;
         if (canonPath(location.pathname) + location.search === docPath) return;
-        go(location.href, false);
+        /* 真实文件地址存在 state.f：软导航按它 fetch 真实文件；
+           没有 state.f 的历史条目（非本层产生）→ 整页加载兜底 */
+        var f = e.state && e.state.f;
+        if (f) go(f, false);
+        else hardGo(location.href);
     });
 })();

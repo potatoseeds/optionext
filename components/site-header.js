@@ -32,8 +32,8 @@
     /* root:true = 站点首页栏目，仅精确匹配高亮（否则子路径部署时
        根路径是一切页面的前缀，会导致首页项在每个页面都亮红点） */
     var NAV = [
-        { cn: '团队介绍', en: 'TEAM',      href: '/',           root: true },
-        { cn: '项目',     en: 'PROJECTS',  href: '/projects/' }
+        { cn: '团队介绍', en: 'TEAM',      href: '/index.html',           root: true },
+        { cn: '项目',     en: 'PROJECTS',  href: '/projects/index.html' }
     ];
 
     function resolve(href) {
@@ -104,7 +104,7 @@
     root.innerHTML =
         '<div class="sh-bar">' +
             '<span class="sh-clip" aria-hidden="true"><i class="sh-sheen"></i></span>' +
-            '<a class="sh-brand" href="' + ROOT + '" aria-label="Optionext 药铺子 · 首页">' +
+            '<a class="sh-brand" href="' + ROOT + 'index.html" aria-label="Optionext 药铺子 · 首页">' +
                 '<img alt="药铺子 Optionext" loading="eager">' +
             '</a>' +
             '<nav class="sh-nav" aria-label="主导航"></nav>' +
