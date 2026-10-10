@@ -40,9 +40,26 @@
 
     var busy = false;
 
-    /* 当前已渲染文档的路径（不含 hash）。
+    /* ---------------- 目录规范地址 ----------------
+       入口文件名不出现在地址栏：/index.html、/mobile.html 一律归一到
+       所在目录（'/' 或 '/projects/'，桌面页/移动页共用同一规范地址）。
+       前面必须带 '/'，避免误伤 fooindex.html 这类普通详情页。 */
+    function canonPath(p) {
+        return p.replace(/\/(index|mobile)\.html$/i, '/');
+    }
+
+    /* 直接访问入口文件（含设备守卫跳转落地 mobile.html）时，
+       静默把地址栏整理成目录形式，不产生刷新、不新增历史条目 */
+    if (canonPath(location.pathname) !== location.pathname) {
+        try {
+            history.replaceState(history.state, '',
+                canonPath(location.pathname) + location.search + location.hash);
+        } catch (e) {}
+    }
+
+    /* 当前已渲染文档的规范路径（不含 hash）。
        点击 <a href="#xxx"> 产生的 popstate 只改 hash，据此识别并放行 */
-    var docPath = location.pathname + location.search;
+    var docPath = canonPath(location.pathname) + location.search;
 
     /* ---------------- 过渡样式（只注入一次） ---------------- */
     var style = document.createElement('style');
@@ -118,10 +135,17 @@
         try { targetUrl = new URL(href, location.href); } catch (e) { targetUrl = null; }
 
         if (doc.title) document.title = doc.title;
+        /* 历史地址一律写目录规范形式（即使 fetch 的 href 带 index.html） */
+        var display = targetUrl
+            ? canonPath(targetUrl.pathname) + targetUrl.search + targetUrl.hash
+            : href;
         if (push !== false) {
-            try { history.pushState({ optionextTransit: 1 }, '', href); } catch (e) {}
+            try { history.pushState({ optionextTransit: 1 }, '', display); } catch (e) {}
+        } else if (display !== href) {
+            /* 前进/后退落到旧的 index.html 历史条目：顺手规范掉，不新增条目 */
+            try { history.replaceState(history.state, '', display); } catch (e) {}
         }
-        docPath = targetUrl ? targetUrl.pathname + targetUrl.search : docPath;
+        docPath = targetUrl ? canonPath(targetUrl.pathname) + targetUrl.search : docPath;
 
         /* 目标带 hash（如 projects/x.html#sec）：换页后落到对应锚点；否则回顶 */
         var hashEl = targetUrl && targetUrl.hash
@@ -182,8 +206,23 @@
         if (url.origin !== location.origin) return;
         if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-        /* 同页（仅 hash 不同，如 #team、#）：交给浏览器原生锚点行为 */
-        if (url.pathname === location.pathname && url.search === location.search) return;
+        /* 同一页面（规范地址相同，忽略 /index.html 与 / 的字面差异）：
+           · 指向不同锚点（#team 等）→ 交给浏览器原生锚点滚动；
+           · 重复点击当前栏目（无 hash 变化）→ 完全放行到这里为止：
+             不 fetch、不淡出、不重跑脚本，<main> 与页眉/底栏纹丝不动。
+           地址栏若还残留入口文件名，顺手静默规范掉 */
+        if (canonPath(url.pathname) === canonPath(location.pathname) &&
+            url.search === location.search) {
+            if (url.hash && url.hash !== location.hash) return;
+            e.preventDefault();
+            if (canonPath(location.pathname) !== location.pathname) {
+                try {
+                    history.replaceState(history.state, '',
+                        canonPath(location.pathname) + location.search + location.hash);
+                } catch (e) {}
+            }
+            return;
+        }
 
         e.preventDefault();
         go(url.href, true);
@@ -194,7 +233,7 @@
        popstate —— 这种只改 hash 的情况必须放行，交给原生锚点行为 */
     window.addEventListener('popstate', function () {
         if (busy) return;
-        if (location.pathname + location.search === docPath) return;
+        if (canonPath(location.pathname) + location.search === docPath) return;
         go(location.href, false);
     });
 })();

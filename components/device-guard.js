@@ -37,14 +37,18 @@
     }
 
     /* 当前页面相对站点根的路径（如 'projects/mobile.html'）。
-       必须带子目录——不同栏目下同名文件（多个 mobile.html）否则无法区分 */
+       必须带子目录——不同栏目下同名文件（多个 mobile.html）否则无法区分。
+       软导航把地址规范成目录形式（'/'、'/projects/'），服务器此时落地的
+       其实是该目录的 index.html，这里一并还原，否则会漏配 PAIRS */
     function currentRel() {
         var rootPath = new URL(ROOT).pathname;   // '/' 或 '/Optionext/' 等
         var path = location.pathname;
         var rel = path.indexOf(rootPath) === 0
             ? path.slice(rootPath.length)
             : path.slice(path.lastIndexOf('/') + 1);
-        return rel || 'index.html';
+        if (!rel) return 'index.html';
+        if (rel.charAt(rel.length - 1) === '/') return rel + 'index.html';
+        return rel;
     }
 
     function go(file) {
