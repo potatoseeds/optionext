@@ -482,7 +482,7 @@
         var started = performance.now();
         var settleNow = false;       // resize / reduced-motion 直接呈现完成态
 
-        var mouse = { x: -9999, y: -9999, active: false, lm: -1e9 };
+        var mouse = { x: -9999, y: -9999, active: false, lm: -1e9, touch: false };
         var clickSweepAt = -1;       // 点中图标：细字符带重扫起点
 
         /* ---------------- 随机（种子） ---------------- */
@@ -670,6 +670,7 @@
             mouse.x = e.clientX - r.left;
             mouse.y = e.clientY - r.top;
             mouse.active = true;
+            mouse.touch = e.pointerType === 'touch';
             mouse.lm = performance.now() - started;
         });
         heroEl.addEventListener('pointerleave', function () { mouse.active = false; });
@@ -753,8 +754,11 @@
                 }
             }
 
-            /* 指针静止自动消退：停住约半秒后斥力衰减，避免点击后留下永久空洞 */
-            var moveF = mouse.active && !reduced ? clamp(1 - (t - mouse.lm - 480) / 420, 0, 1) : 0;
+            /* 斥力系数：鼠标停住约半秒后自动消退（避免 hover 留下永久空洞）；
+               触屏手指按住期间斥力常留（恢复旧逻辑），抬手由 pointerup 清除 */
+            var moveF = mouse.active && !reduced
+                ? (mouse.touch ? 1 : clamp(1 - (t - mouse.lm - 480) / 420, 0, 1))
+                : 0;
 
             for (var i = 0; i < cells.length; i++) {
                 var c = cells[i];
@@ -895,7 +899,7 @@
                     }
                 }
 
-                /* ---- 触压斥力（细条状划过的加强版，静止即消退） ---- */
+                /* ---- 触压斥力（细条状划过的加强版；触屏按住常留，鼠标静止消退） ---- */
                 var repelX = 0, repelY = 0;
                 c.near = false;
                 if (moveF > 0) {
