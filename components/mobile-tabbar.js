@@ -33,8 +33,8 @@
     /* root:true = 站点首页栏目，仅精确匹配高亮（否则子路径部署时
        根路径是一切页面的前缀，会导致首页项在每个页面都亮红点） */
     var NAV = [
-        { cn: '团队介绍', href: '/mobile.html',           root: true },
-        { cn: '项目',     href: '/projects/mobile.html' }
+        { cn: '药铺子', href: '/mobile.html',           root: true },
+        { cn: '案牍集', href: '/projects/mobile.html' }
     ];
 
     function resolve(href) {

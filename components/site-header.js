@@ -32,8 +32,9 @@
     /* root:true = 站点首页栏目，仅精确匹配高亮（否则子路径部署时
        根路径是一切页面的前缀，会导致首页项在每个页面都亮红点） */
     var NAV = [
-        { cn: '团队介绍', en: 'TEAM',      href: '/index.html',           root: true },
-        { cn: '项目',     en: 'PROJECTS',  href: '/projects/index.html' }
+        { cn: '药铺子', en: 'TEAM',      href: '/index.html',           root: true },
+        { cn: '确实',   en: 'QUESHI',    href: '#' },
+        { cn: '案牍集', en: 'PROJECTS',  href: '/projects/index.html' }
     ];
 
     function resolve(href) {
