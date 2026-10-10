@@ -482,7 +482,7 @@
         var started = performance.now();
         var settleNow = false;       // resize / reduced-motion 直接呈现完成态
 
-        var mouse = { x: -9999, y: -9999, active: false, lm: -1e9, touch: false };
+        var mouse = { x: -9999, y: -9999, active: false, lm: -1e9 };
         var clickSweepAt = -1;       // 点中图标：细字符带重扫起点
 
         /* ---------------- 随机（种子） ---------------- */
@@ -665,19 +665,28 @@
         /* ============================================================
            交互（纯字符反馈，无任何线条/光斑）
            ============================================================ */
-        heroEl.addEventListener('pointermove', function (e) {
+        function pointerSample(e) {
             var r = cv.getBoundingClientRect();
             mouse.x = e.clientX - r.left;
             mouse.y = e.clientY - r.top;
-            mouse.active = true;
-            mouse.touch = e.pointerType === 'touch';
             mouse.lm = performance.now() - started;
+        }
+        heroEl.addEventListener('pointerdown', function (e) {
+            pointerSample(e);
+            mouse.active = true;
         });
-        heroEl.addEventListener('pointerleave', function () { mouse.active = false; });
+        heroEl.addEventListener('pointermove', function (e) {
+            pointerSample(e);
+            mouse.active = true;
+        });
+        /* 抬手/松键不清场：停住即无新运动，由 moveF 沿"停 480ms + 420ms 柔消"
+           同一条曲线消退，手指划过与鼠标划过手感一致；也不可能永久留洞。
+           touch/pen 在 up 后规范上必补发 pointerleave（仅会话边界噪声），忽略；
+           只有鼠标真正移出元素才瞬清。cancel（手势被滚动接管等异常中断）立即清。 */
+        heroEl.addEventListener('pointerleave', function (e) {
+            if (e.pointerType === 'mouse') mouse.active = false;
+        });
         heroEl.addEventListener('pointercancel', function () { mouse.active = false; });
-        heroEl.addEventListener('pointerup', function (e) {
-            if (e.pointerType === 'touch') mouse.active = false;   // 抬手即消，避免斥力卡死在触点
-        });
 
         heroEl.addEventListener('click', function (e) {
             if (reduced || e.target.closest('a,button')) return;
@@ -754,11 +763,10 @@
                 }
             }
 
-            /* 斥力系数：鼠标停住约半秒后自动消退（避免 hover 留下永久空洞）；
-               触屏手指按住期间斥力常留（恢复旧逻辑），抬手由 pointerup 清除 */
-            var moveF = mouse.active && !reduced
-                ? (mouse.touch ? 1 : clamp(1 - (t - mouse.lm - 480) / 420, 0, 1))
-                : 0;
+            /* 斥力系数只看"指针最近是否在运动"：滑动/按住移动时为 1；
+               停住（手指贴着不动或鼠标原地停着）480ms 后于 420ms 内柔消到 0。
+               手指与鼠标共用此曲线；真离场 / 手势取消才由事件瞬清 */
+            var moveF = mouse.active && !reduced ? clamp(1 - (t - mouse.lm - 480) / 420, 0, 1) : 0;
 
             for (var i = 0; i < cells.length; i++) {
                 var c = cells[i];
@@ -899,7 +907,7 @@
                     }
                 }
 
-                /* ---- 触压斥力（细条状划过的加强版；触屏按住常留，鼠标静止消退） ---- */
+                /* ---- 触压斥力（细条状划过的加强版，随运动停止柔消） ---- */
                 var repelX = 0, repelY = 0;
                 c.near = false;
                 if (moveF > 0) {
