@@ -676,14 +676,37 @@
             pointerSample(e);
             mouse.active = true;
         });
-        /* 抬手/松键不清场：停住即无新运动，由 moveF 沿"停 480ms + 420ms 柔消"
-           同一条曲线消退，手指（含 iPad 触屏）与鼠标划过手感一致；也不可能永久留洞。
-           touch/pen 在 up 后规范上必补发 pointerleave（仅会话边界噪声），忽略；
-           只有鼠标真正移出元素才瞬清。cancel（手势被滚动接管等异常中断）立即清。 */
+        /* 抬手/松键不走清场：停住即无新运动，由 moveF 沿"停 480ms + 420ms 柔消"
+           同一条曲线消退，手指（含 iPad/触屏本）与鼠标划过手感一致；也不可能永久留洞。
+           touch/pen 在 up 后规范上必补发 pointerleave 边界噪声，忽略；
+           只有鼠标真正移出元素才瞬清。cancel 只对鼠标/笔瞬清（见下）。 */
         heroEl.addEventListener('pointerleave', function (e) {
             if (e.pointerType === 'mouse') { mouse.active = false; }
         });
-        heroEl.addEventListener('pointercancel', function () { mouse.active = false; });
+        heroEl.addEventListener('pointercancel', function (e) {
+            if (e.pointerType !== 'touch') { mouse.active = false; }
+        });
+
+        /* 触摸兜底通道（{passive:true}，绝不阻止原生滚动）：
+           手指滑动一旦被浏览器判定为滚页手势，Pointer Events 会被 pointercancel
+           截断（真机上"一滑斥力就快速衰减"的根因，鼠标无此问题），但原生 touch
+           事件在滚动全程继续派发——由它持续喂坐标与最后运动时刻，触摸与鼠标
+           共用同一条"动则满力、停住柔消"曲线。抬手/取消同样不清场，交给 moveF。 */
+        function touchSample(e) {
+            var t = e.touches && e.touches[0];
+            if (!t) { return; }
+            pointerSample(t);
+            mouse.active = true;
+        }
+        heroEl.addEventListener('touchstart', touchSample, { passive: true });
+        heroEl.addEventListener('touchmove', touchSample, { passive: true });
+        heroEl.addEventListener('touchend', function (e) {
+            if (e.touches && e.touches.length) { touchSample(e); }
+            /* 无剩余触点：位置冻结，moveF 自然柔消，与鼠标停住同曲线 */
+        }, { passive: true });
+        heroEl.addEventListener('touchcancel', function () {
+            /* 系统中断手势：同样柔消，不瞬清 */
+        }, { passive: true });
 
         heroEl.addEventListener('click', function (e) {
             if (reduced || e.target.closest('a,button')) return;
