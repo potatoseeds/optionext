@@ -993,7 +993,11 @@
         function loop(now) {
             if (dead) return;                  // 软导航离开后不再续帧
             rafId = requestAnimationFrame(loop);
-            if (heroVisible) render(settleNow ? 100000 : now - started);
+            if (heroVisible) {
+                var t = settleNow ? 100000 : now - started;
+                settleNow = false;            // 完成态只消费一帧，随后恢复真实时钟
+                render(t);                    // （曾永久不复位→resize 后斥力与细扫全死）
+            }
         }
 
         /* 主题切换：颜色实时跟随 CSS 令牌（具名以便离开时摘除） */

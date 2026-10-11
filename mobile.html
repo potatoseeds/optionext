@@ -712,17 +712,19 @@
         }, { passive: true });
 
         /* ============================================================
-           临时真机诊断浮层（?dbg=1，定位触摸斥力问题后整段删除）
+           临时真机诊断浮层（?dbg=1，定位 resize 崩溃后整段删除）
            ============================================================ */
         if (/[?&]dbg=1(?:&|$)/.test(location.search)) {
             var DBG = { pd:0, pm:0, pu:0, pc:0, pl:0, po:0, ts:0, tm:0, te:0, tc:0,
-                       last:'-', lastA:0, mf:0, age:0, fr:0, fps:'-', ta:'-', vis:'-', ua:'' };
+                       last:'-', lastA:0, mf:0, age:0, fr:0, done:0, fps:'-', ta:'-', vis:'-', ua:'',
+                       err:0, errMsg:'-', rsz:0, rszAt:0, bld:0, bldMs:0, berr:'-',
+                       sn:false, hv:true, cw:0, ch:0, nc:0 };
             (function () {
                 var old = document.getElementById('__dbg');
                 if (old) old.parentNode.removeChild(old);
                 var dh = document.createElement('div');
                 dh.id = '__dbg';
-                dh.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:99999;font:10px/1.55 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.8);color:#6dff9a;padding:8px 10px;border-radius:8px;white-space:pre;pointer-events:none;letter-spacing:.2px';
+                dh.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:99999;font:10px/1.5 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.82);color:#6dff9a;padding:8px 10px;border-radius:8px;white-space:pre;pointer-events:none;letter-spacing:.1px';
                 document.body.appendChild(dh);
             }());
             var __dmap = { pointerdown:'pd', pointermove:'pm', pointerup:'pu', pointercancel:'pc',
@@ -735,9 +737,28 @@
                     DBG.lastA = performance.now() - e.timeStamp;
                 }, { passive: true, capture: true });
             });
-            document.addEventListener('visibilitychange', function () {
-                DBG.vis = document.visibilityState + '@' + Math.round(performance.now() / 100) % 1000;
+            window.addEventListener('error', function (e) {
+                DBG.err++;
+                if (DBG.errMsg === '-') DBG.errMsg = (e.message || 'err') + ' @' + (e.lineno || '?');
+            }, true);
+            window.addEventListener('unhandledrejection', function (e) {
+                DBG.err++;
+                if (DBG.errMsg === '-') DBG.errMsg = 'rej:' + (e.reason && e.reason.message ? e.reason.message : e.reason);
             });
+            window.addEventListener('resize', function () {
+                DBG.rsz++; DBG.rszAt = performance.now();
+            }, { passive: true, capture: true });
+            document.addEventListener('visibilitychange', function () {
+                DBG.vis = document.visibilityState;
+            });
+            window.__dbgFrame = function (sn, hv) { DBG.sn = sn; DBG.hv = hv; };
+            window.__dbgBuild = function (fn) {
+                var b0 = performance.now();
+                try { fn(); DBG.bld++; DBG.berr = '-'; }
+                catch (e) { DBG.berr = (e && e.message) ? e.message : String(e); DBG.err++; }
+                DBG.bldMs = Math.round(performance.now() - b0);
+            };
+            window.__dbgDone = function () { DBG.done++; };
             DBG.ta = getComputedStyle(heroEl).touchAction;
             DBG.ua = (navigator.userAgent.match(/Android[\d.]*/) || ['?'])[0] +
                      ' / ' + (navigator.userAgent.match(/Chrome\/[\d]+/) || navigator.userAgent.match(/MQQBrowser\/[\d.]+/) || ['?'])[0];
@@ -745,6 +766,7 @@
             window.__dbgTick = function (t, mf) {
                 DBG.mf = +mf.toFixed(2);
                 DBG.age = Math.round(t - mouse.lm);
+                DBG.cw = cssW; DBG.ch = cssH; DBG.nc = cells.length;
                 DBG.fr++; __fn++;
                 var wn = performance.now();
                 if (wn - __ft0 >= 500) {
@@ -752,21 +774,24 @@
                     __ft0 = wn; __fn = 0;
                     var dh = document.getElementById('__dbg');
                     if (dh && (__draw++ % 2 === 0)) {
+                        var alarm = DBG.err > 0 || (DBG.fr - DBG.done) > 2;
+                        dh.style.color = alarm ? '#ff5a5a' : '#6dff9a';
                         dh.textContent =
-                            'DBG  ' + DBG.ua + '\n' +
+                            'DBG ' + DBG.ua + '  err:' + DBG.err + ' ' + DBG.errMsg + '\n' +
+                            'rsz:' + DBG.rsz + '(' + Math.round(wn - DBG.rszAt) + 'ms前) bld:' + DBG.bld +
+                            '/' + DBG.bldMs + 'ms berr:' + DBG.berr + '\n' +
+                            'frame:' + DBG.fr + ' done:' + DBG.done +
+                            '  sn:' + DBG.sn + ' hv:' + DBG.hv +
+                            '  ' + DBG.cw + 'x' + DBG.ch + ' n:' + DBG.nc + '\n' +
                             'pD:' + DBG.pd + ' pM:' + DBG.pm + ' pU:' + DBG.pu +
-                            ' pCancel:' + DBG.pc + ' pLeave:' + DBG.pl + ' pOut:' + DBG.po + '\n' +
-                            'tStart:' + DBG.ts + ' tMove:' + DBG.tm + ' tEnd:' + DBG.te +
-                            ' tCancel:' + DBG.tc + '\n' +
-                            'last:' + DBG.last + ' (' + Math.round(DBG.lastA) + 'ms ago)' +
-                            '  age:' + DBG.age + 'ms\n' +
-                            'moveF:' + DBG.mf + '  active:' + mouse.active +
-                            '  fps:' + DBG.fps + '  ta:' + DBG.ta + '  vis:' + DBG.vis +
-                            '  xy:' + Math.round(mouse.x) + ',' + Math.round(mouse.y);
+                            ' pC:' + DBG.pc + ' | tS:' + DBG.ts + ' tM:' + DBG.tm +
+                            ' tE:' + DBG.te + ' tC:' + DBG.tc + '\n' +
+                            'last:' + DBG.last + ' age:' + DBG.age + 'ms moveF:' + DBG.mf +
+                            ' act:' + mouse.active + ' fps:' + DBG.fps + ' vis:' + DBG.vis;
                     }
                 }
             };
-        } else { window.__dbgTick = null; }
+        } else { window.__dbgTick = null; window.__dbgDone = null; window.__dbgFrame = null; window.__dbgBuild = null; }
 
         heroEl.addEventListener('click', function (e) {
             if (reduced || e.target.closest('a,button')) return;
@@ -1041,6 +1066,7 @@
                     ctx.drawImage(sp, Math.round(x - sp._size / 2), Math.round(y - sp._size / 2), sp._size, sp._size);
                 }
             }
+            if (window.__dbgDone) window.__dbgDone();
         }
 
         /* ---------------- 主循环（hero 离开视口自动挂帧省电） ---------------- */
@@ -1054,7 +1080,12 @@
         function loop(now) {
             if (dead) return;                  // 软导航离开后不再续帧
             rafId = requestAnimationFrame(loop);
-            if (heroVisible) render(settleNow ? 100000 : now - started);
+            if (window.__dbgFrame) window.__dbgFrame(settleNow, heroVisible);
+            if (heroVisible) {
+                var t = settleNow ? 100000 : now - started;
+                settleNow = false;            // 完成态只消费一帧，随后恢复真实时钟
+                render(t);                    // （曾永久不复位→滚动/缩放触发 resize 后斥力与细扫全死）
+            }
         }
 
         /* ============================================================
@@ -1075,7 +1106,7 @@
             resizeTimer = setTimeout(function () {
                 if (dead) return;
                 settleNow = performance.now() - started > IDLE_AT;
-                build();
+                if (window.__dbgBuild) window.__dbgBuild(build); else build();
             }, 140);
         }
         function onLoad() { calcQuiet(); }
