@@ -265,20 +265,25 @@
 }
 
 /* 信号红小圆点：与桌面页眉同款指示符，悬于项顶。
-   用真实子元素而非 ::after —— iOS Safari 中该点处在
-   「backdrop-filter 玻璃层 + 祖先入场 transform 动画」内，
-   伪元素首次光栅化可能不绘制（切换页面触发样式重求值后才出现，
-   表现为"首次进站点不亮"）；真实元素随每次布局可靠上屏 */
+   真机（Android 各厂 WebView / iOS）实测：该点处在
+   「backdrop-filter 玻璃层 + 祖先 .mt-root 入场 transform 动画」内，
+   首次光栅化合成层会丢；动画结束父层 transform 销毁重建后也不补绘，
+   直到切页改 class 才出现 —— 表现为“首次进站不亮”。
+   对策：真实子元素 + margin 居中（不用依赖父合成的 translateX）+
+   常驻 translate3d 独立 backing layer，只切 opacity，绝不使用
+   会被优化合并的 scale(.4) 初值。 */
 .mt-dot {
     position: absolute;
     top: 5px;
     left: 50%;
     width: 4px;
     height: 4px;
+    margin-left: -2px;
     border-radius: 50%;
     background: var(--mt-signal);
     opacity: 0;
-    transform: translateX(-50%) scale(.4);
+    transform: translate3d(0, -2px, 0);
+    backface-visibility: hidden;
     transition: opacity .25s var(--mt-ease), transform .25s var(--mt-ease);
     pointer-events: none;
 }
@@ -289,7 +294,7 @@
         background: linear-gradient(180deg, var(--mt-pill-top), var(--mt-pill-bot));
         box-shadow: inset 0 1px 0 var(--mt-pill-line);
     }
-    .mt-item:hover .mt-dot { opacity: 1; transform: translateX(-50%) scale(1); }
+    .mt-item:hover .mt-dot { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 .mt-item:active {
     transform: scale(.96);
@@ -301,7 +306,7 @@
 }
 
 .mt-item.mt-active { color: var(--mt-ink); }
-.mt-item.mt-active .mt-dot { opacity: 1; transform: translateX(-50%) scale(1); }
+.mt-item.mt-active .mt-dot { opacity: 1; transform: translate3d(0, 0, 0); }
 
 /* ---------------- 右侧独立圆形日夜切换钮 ---------------- */
 .mt-theme {
