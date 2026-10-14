@@ -93,13 +93,17 @@
             it.loaded = true;
             var src = it.frame.getAttribute('data-src');
             if (src) it.frame.setAttribute('src', src);
-            /* 兜底：子文档脚本失效 / 被拦时，2s 后给保底高度并揭盖，
-               抽屉不会永远停在“载入中” */
+            /* 兜底：子文档脚本失效 / 被拦 / 文件缺失（云端漏传 news/），
+               2s 内没收到高度上报就在匣面给出显性失败原因，绝不留空白盒 */
             it.watchdog = setTimeout(function () {
                 if (it.fitted) return;
-                it.fitted = true;
-                it.frame.style.height = '62vh';
-                if (it.box) it.box.classList.add('is-fit');
+                var src = it.frame.getAttribute('data-src') || '';
+                var hint = it.box ? it.box.querySelector('.news-frame-hint') : null;
+                if (hint) {
+                    hint.textContent = '文档载入失败或超时：' + src +
+                        '（请确认该文件已随页面一起部署 / 刷新缓存后重试）';
+                    hint.classList.add('is-error');
+                }
             }, 2000);
         }
 

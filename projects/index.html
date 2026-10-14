@@ -276,6 +276,26 @@
             transition: opacity .3s ease, visibility .3s ease;
         }
         .news-frame-box.is-fit .news-frame-hint { opacity: 0; visibility: hidden; }
+        .news-frame-hint { white-space: normal; line-height: 1.7; text-align: center; padding: 0 20px; }
+        .news-frame-hint.is-error {
+            color: var(--signal);
+            text-transform: none;
+            font-family: var(--font-sans);
+            font-size: 13.5px;
+            letter-spacing: .02em;
+        }
+
+        /* 部署自检：抽屉脚本漏传 / 被拦截时，替代“点了没反应”的显性提示 */
+        .news-fatal {
+            margin: 8px 0;
+            padding: 18px 20px;
+            border: 1px solid var(--signal);
+            border-left-width: 3px;
+            color: var(--signal);
+            font-size: 14px;
+            line-height: 1.8;
+            letter-spacing: .02em;
+        }
         .news-frame {
             display: block;
             width: 100%;
@@ -375,8 +395,23 @@
 
     <script src="../components/site-header.js?v=20261014c"></script>
     <!-- 新闻板块抽屉：?PG=n 追踪 + iframe 载入（必须在软导航之前） -->
-    <script src="../components/news-drawer.js?v=20261014a"></script>
+    <script src="../components/news-drawer.js?v=20261014b"></script>
     <script data-page-script>window.OptionextNewsDrawer()</script>
+    <!-- 部署自检：脚本漏传 / 被拦截时给出显性红条，而不是“点了没反应” -->
+    <script>
+        window.addEventListener('load', function () {
+            setTimeout(function () {
+                if (typeof window.OptionextNewsDrawer === 'function') return;
+                var box = document.querySelector('.registry');
+                if (!box || box.querySelector('.news-fatal')) return;
+                var d = document.createElement('div');
+                d.className = 'news-fatal';
+                d.textContent = '板块脚本未加载：components/news-drawer.js 缺失或被拦截。' +
+                    '云端部署请整目录覆盖上传；本地请强制刷新（Ctrl+F5）后重试。';
+                box.parentNode.insertBefore(d, box);
+            }, 300);
+        });
+    </script>
     <!-- 页面清单：file:// 直开时供软导航取页（必须在软导航之前） -->
     <script src="../components/page-manifest.js?v=20261014c"></script>
     <!-- 软导航：页眉保活 + 主体淡入淡出（必须在页眉组件之后） -->
