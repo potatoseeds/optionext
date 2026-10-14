@@ -74,8 +74,9 @@
                 frame: block.querySelector('.news-frame'),
                 box: block.querySelector('.news-frame-box'),
                 loaded: false,
+                docReady: false,
                 fitted: false,
-                watchdog: 0
+                timers: []
             };
         });
 
@@ -87,24 +88,66 @@
 
         var activePg = null;
 
+        function failHint(it, reason) {
+            var hint = it.box ? it.box.querySelector('.news-frame-hint') : null;
+            if (!hint) return;
+            hint.textContent = reason;
+            hint.classList.add('is-error');
+        }
+
+        /* 同源（http(s) 直连 / 经 308 到同站）时父页直接量子文档高度，
+           不必等 postMessage 往返——慢网、平台 .html→无扩展名 308
+           （猫仔云等）下也能在 load 瞬间贴合；file:// 下访问 contentDocument
+           会抛 SecurityError，自动退回子文档 frame-fit.js 的消息通道 */
+        function directMeasure(it) {
+            var doc = null;
+            try { doc = it.frame.contentDocument; } catch (e) { doc = null; }
+            if (!doc || !doc.documentElement) return false;
+            var de = doc.documentElement;
+            var h = Math.max(de.scrollHeight, de.offsetHeight,
+                doc.body ? doc.body.scrollHeight : 0);
+            if (h > 0) { fitFrame(it.frame, h); return true; }
+            return false;
+        }
+
+        function clearTimers(it) {
+            (it.timers || []).forEach(function (t) { clearTimeout(t); });
+            it.timers = [];
+        }
+
         /* ---------- iframe 载入 / 高度 ---------- */
         function ensureFrame(it) {
             if (!it.frame || it.loaded) return;
             it.loaded = true;
-            var src = it.frame.getAttribute('data-src');
+            var src = it.frame.getAttribute('data-src') || '';
+
+            it.frame.addEventListener('load', function () {
+                it.docReady = true;
+                clearTimers(it);
+
+                /* 1) 同源直量：load 即贴合，随后再补几轮等字体 / 图片落位 */
+                directMeasure(it);
+                [120, 360, 800, 1500, 2400].forEach(function (ms) {
+                    it.timers.push(setTimeout(function () { directMeasure(it); }, ms));
+                });
+
+                /* 2) load 之后仍贴合失败：子文档脚本缺失 / 被拦 / 404 页，
+                   给出显性原因（子文档 frame-fit.js 的消息随时可救回） */
+                it.timers.push(setTimeout(function () {
+                    if (it.fitted) return;
+                    failHint(it, '文档高度获取失败：' + src +
+                        '（子文档脚本缺失 / 被拦截，或该文件未随页面部署；强刷后重试）');
+                }, 2600));
+            });
+
+            /* 3) load 始终没发生：网络不可达 / 文件根本不存在（云端漏传） */
+            it.timers.push(setTimeout(function () {
+                if (it.docReady || it.fitted) return;
+                failHint(it, '文档载入失败或超时：' + src +
+                    '（请确认该文件已随页面一起部署 / 刷新缓存后重试）');
+            }, 9000));
+
             if (src) it.frame.setAttribute('src', src);
-            /* 兜底：子文档脚本失效 / 被拦 / 文件缺失（云端漏传 news/），
-               2s 内没收到高度上报就在匣面给出显性失败原因，绝不留空白盒 */
-            it.watchdog = setTimeout(function () {
-                if (it.fitted) return;
-                var src = it.frame.getAttribute('data-src') || '';
-                var hint = it.box ? it.box.querySelector('.news-frame-hint') : null;
-                if (hint) {
-                    hint.textContent = '文档载入失败或超时：' + src +
-                        '（请确认该文件已随页面一起部署 / 刷新缓存后重试）';
-                    hint.classList.add('is-error');
-                }
-            }, 2000);
         }
 
         function fitFrame(frame, height) {
@@ -112,13 +155,11 @@
             for (var i = 0; i < items.length; i++)
                 if (items[i].frame === frame) { it = items[i]; break; }
             if (!it || !(height > 0)) return;
-            if (!it.fitted) {
-                it.fitted = true;
-                clearTimeout(it.watchdog);
-            }
-            /* 高度只增不减会留出尸体，但字体 / 图片异步到达时
-               上报值会先小后大；最终值由子文档 ResizeObserver 持续纠偏，
-               这里始终采用最新值即可 */
+            it.fitted = true;
+            var hint = it.box ? it.box.querySelector('.news-frame-hint') : null;
+            if (hint) hint.classList.remove('is-error');
+            /* 字体 / 图片异步到达时高度会先小后大；子文档 ResizeObserver
+               的持续上报 + 同源直量补轮会不断给出最新值，始终采用最新值 */
             it.frame.style.height = Math.ceil(height) + 'px';
             if (it.box) it.box.classList.add('is-fit');
         }
@@ -197,7 +238,7 @@
             if (it.head) it.head.addEventListener('click', fn);
             return function () {
                 if (it.head) it.head.removeEventListener('click', fn);
-                clearTimeout(it.watchdog);
+                clearTimers(it);
             };
         });
         window.addEventListener('popstate', onPop);

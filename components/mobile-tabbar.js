@@ -25,7 +25,7 @@
     /* ---------- 站点根目录：<本文件>/../ ---------- */
     var SELF = new URL(document.currentScript.src, document.baseURI);
     var ROOT = new URL('../', SELF).href;                 // 以 / 结尾
-    var URL_CSS = ROOT + 'components/mobile-tabbar.css';
+    var URL_CSS = ROOT + 'components/mobile-tabbar.css?v=20261014d';
     var THEME_KEY = 'optionext-theme';
 
     /* ---------- 导航配置（后续直接改这里） ----------
@@ -137,7 +137,10 @@
         var a = document.createElement('a');
         a.className = 'mt-item';
         a.href = resolve(item.href);
+        /* .mt-dot 用真实元素而非 ::after：避开 iOS Safari 在
+           backdrop-filter + 入场动画层内伪元素首次不绘制的问题 */
         a.innerHTML =
+            '<span class="mt-dot" aria-hidden="true"></span>' +
             '<span class="mt-cn">' + item.cn + '</span>';
         card.appendChild(a);
         itemRefs.push({ el: a, item: item });
