@@ -21,8 +21,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style data-page="queshi">
 /* ============================================================
-   QUESHI 确识 · 对话台 01
-   沿用 OPTIONEXT 纸墨 / 信号红系统 · 双主题 · 纯字符动效
+   QUESHI 确识 · 对话台 02
+   纸墨 / 信号红系统 · Luna·Sol 跟随日夜 · Astra 自成星域
    ============================================================ */
 :root {
     --paper: #f4f3ef;
@@ -66,7 +66,6 @@ body {
 ::selection { background: var(--ink); color: var(--paper); }
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
-.mono { font-family: var(--font-mono); }
 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--ink-25); border: 3px solid var(--paper); }
@@ -79,7 +78,7 @@ a { color: inherit; text-decoration: none; }
    ============================================================ */
 :root {
     --sh-safe-top: 92px;
-    --sh-safe-bottom: 120px;                     /* 页眉锚底时多抬一档，输入区离玻璃更远 */
+    --sh-safe-bottom: 120px;
 }
 /* .app 即 <main>：软导航只搬运 <main>，避让与布局都挂在它身上。
    transition 同时包含 page-transit 的淡出淡入属性 */
@@ -87,23 +86,14 @@ a { color: inherit; text-decoration: none; }
     display: flex; flex-direction: column;
     height: 100vh;
     min-width: 0; min-height: 0;
-    position: relative; z-index: 1;              /* 压在 fixed 字符雨之上，自身无底色 */
-    padding-top: var(--sh-safe-top);             /* 页眉锚顶：避让 */
+    position: relative; z-index: 1;              /* 压在 fixed 背景层之上，自身无底色 */
+    padding-top: var(--sh-safe-top);
     transition: padding .5s var(--ease-out), opacity .24s ease, transform .24s ease;
 }
 body.sh-dock-bottom .app {
-    padding-top: 0;                              /* 页眉锚底：改为避让底部 */
+    padding-top: 0;
     padding-bottom: var(--sh-safe-bottom);
 }
-
-/* dock 行右侧小控件（清空） */
-.qh-link {
-    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
-    color: var(--ink-45); white-space: nowrap;
-    transition: color .2s;
-}
-.qh-link:hover { color: var(--signal); }
-@media (max-width: 1080px) { .level-desc { display: none; } }
 
 /* ---------------- 消息流 ---------------- */
 .stream {
@@ -116,12 +106,13 @@ body.sh-dock-bottom .app {
     padding: 36px 40px 20px;
 }
 
-/* 整屏字符雨：fixed 锚定视口，不随 .stream 的局部滚动滚走 */
+/* 整屏背景层（字符雨 / Astra 流星）：fixed 锚定视口，不随消息流滚动 */
 #rain {
     position: fixed; inset: 0;
     width: 100vw; height: 100vh;
     opacity: .07; pointer-events: none;
     z-index: 0;
+    transition: opacity .8s var(--ease-out);
 }
 
 /* 空状态：居中欢迎层（hidden 必须显式压住 display:flex） */
@@ -202,7 +193,7 @@ body.sh-dock-bottom .app {
     color: var(--ink-70); margin: 8px 0;
 }
 
-/* 推理纪要（L3） */
+/* 推理纪要（Astra） */
 .reasoning {
     margin: 2px 0 10px;
     border: 1px dotted var(--ink-25);
@@ -240,7 +231,7 @@ body.sh-dock-bottom .app {
 }
 
 /* ============================================================
-   输入区 + 分等级拨杆（核心控件）
+   输入区 + 档位拨杆 + X
    ============================================================ */
 .composer {
     flex-shrink: 0;
@@ -250,20 +241,16 @@ body.sh-dock-bottom .app {
 }
 .composer-inner { max-width: 860px; margin: 0 auto; }
 
-/* ---------- 分等级选择器 ---------- */
+/* ---------- 档位选择器 + X ---------- */
 .level-dock {
-    display: flex; align-items: center; gap: 16px;
+    display: flex; align-items: center;
+    gap: 12px;
     margin-bottom: 12px;
-}
-.level-tag {
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: .22em;
-    color: var(--ink-45);
-    white-space: nowrap;
 }
 .level-track {
     position: relative;
     display: grid; grid-template-columns: repeat(3, 1fr);
-    flex: 1; max-width: 460px;
+    width: 360px; flex-shrink: 0;
     border: 1px solid var(--ink);
 }
 .level-pill {
@@ -290,30 +277,67 @@ body.sh-dock-bottom .app {
 }
 .level-opt {
     position: relative; z-index: 1;
-    padding: 9px 10px 8px;
-    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    padding: 10px 10px 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 13.5px; font-weight: 500;
+    letter-spacing: .14em;
     transition: color .3s var(--ease-out);
 }
-.level-opt .lo-code {
-    font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em;
-}
-.level-opt .lo-code .tri { color: var(--signal); margin-right: 5px; }
-.level-opt .lo-name { font-size: 13px; font-weight: 500; line-height: 1.3; }
 .level-opt[aria-checked="true"] { color: var(--paper); }
 .level-opt:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
 
-.level-desc {
-    flex: 1;
-    font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em;
+/* X：紧贴三档右侧，当前档位高阶模型开关 */
+.x-wrap { position: relative; flex-shrink: 0; }
+.x-btn {
+    width: 40px; height: 39px;
+    border: 1px solid var(--ink-25);
+    font-family: var(--font-mono); font-size: 15px; font-weight: 600;
     color: var(--ink-70);
-    min-width: 0;
+    transition: color .25s, border-color .25s, box-shadow .25s, background .25s;
 }
-.level-desc::before { content: '> '; color: var(--signal); }
-.level-desc.flash { animation: descIn .35s var(--ease-out); }
-@keyframes descIn {
-    from { opacity: 0; transform: translateX(-8px); }
-    to   { opacity: 1; transform: translateX(0); }
+.x-btn:hover { border-color: var(--signal); color: var(--signal); }
+.x-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.x-btn.on {
+    color: var(--signal);
+    border-color: var(--signal);
+    box-shadow: 0 0 0 1px var(--signal), 0 0 18px var(--signal-soft), 0 0 26px rgba(223,59,42,.25);
 }
+
+.x-pop {
+    position: absolute; bottom: calc(100% + 10px); left: 0;
+    width: 248px;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    padding: 12px;
+    z-index: 30;
+    animation: popIn .28s var(--ease-out);
+    transform-origin: bottom left;
+}
+@keyframes popIn {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.x-pop[hidden] { display: none; }
+.x-pop-title {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .2em;
+    color: var(--ink-45); margin-bottom: 8px;
+}
+.x-opt {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; text-align: left;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    transition: border-color .2s, background .2s;
+}
+.x-opt:hover { background: var(--ink-12); }
+.x-opt .xo-name { font-size: 13.5px; }
+.x-opt .xo-mark {
+    font-family: var(--font-mono); font-size: 11px; color: var(--signal);
+    opacity: 0;
+}
+.x-opt[aria-checked="true"] { border-color: var(--ink-25); }
+.x-opt[aria-checked="true"] .xo-mark { opacity: 1; }
+.x-opt:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
 
 /* ---------- 输入框 ---------- */
 .input-row {
@@ -336,7 +360,6 @@ body.sh-dock-bottom .app {
 
 .send-btn {
     flex-shrink: 0;
-    display: inline-flex; align-items: center; gap: 9px;
     padding: 10px 20px;
     background: var(--ink); color: var(--paper);
     font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em;
@@ -348,16 +371,32 @@ body.sh-dock-bottom .app {
 .send-btn.stop { background: var(--signal); border-color: var(--signal); color: #fff; }
 .send-btn.stop:hover { background: transparent; color: var(--signal); }
 
-.composer-hint {
-    margin-top: 9px;
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
-    color: var(--ink-45);
+/* ============================================================
+   Astra 星域模式
+   只接管【页面内容区】：.app 内变量强制深空，与日夜主题脱钩；
+   页眉 .sh-root 在 .app 之外，继续跟随页眉自己的日月切换。
+   ============================================================ */
+body.qs-astra .app {
+    --paper: #05070f;
+    --paper-deep: #080b16;
+    --ink: #e8ecff;
+    --ink-70: rgba(232, 236, 255, .74);
+    --ink-45: rgba(232, 236, 255, .5);
+    --ink-25: rgba(180, 196, 255, .24);
+    --ink-12: rgba(180, 196, 255, .1);
+    --signal: #ff5a4d;
+    --signal-soft: rgba(255, 90, 77, .16);
 }
-.composer-hint kbd {
-    font-family: var(--font-mono);
-    border: 1px solid var(--ink-25); padding: 0 5px; margin: 0 2px;
-    color: var(--ink-70);
+body.qs-astra #rain { opacity: 1; }                       /* 流星层转为实背景 */
+body.qs-astra .composer {
+    background: rgba(7, 10, 20, .62);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
+body.qs-astra .input-row { background: rgba(10, 14, 28, .66); }
+body.qs-astra .x-pop { background: #0a0e1c; }
+body.qs-astra .level-pill { background: #e8ecff; }
+body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -365,7 +404,7 @@ body.sh-dock-bottom .app {
 </style>
 </head>
 <body>
-<!-- 整屏字符雨背景由页面脚本挂载到 body（软导航换页时随之创建/移除） -->
+<!-- 整屏背景层（字符雨 / 流星）由页面脚本挂载到 body（软导航换页时随之创建/移除） -->
 <main class="app">
     <section class="stream" id="stream">
             <!-- 空状态 -->
@@ -386,36 +425,31 @@ body.sh-dock-bottom .app {
         <footer class="composer">
             <div class="composer-inner">
 
-                <!-- 分等级拨杆 -->
+                <!-- 档位 + 高阶模型开关 -->
                 <div class="level-dock">
-                    <span class="level-tag">DEPTH/档位</span>
-                    <div class="level-track" id="levelTrack" data-level="l2" role="radiogroup" aria-label="思考深度">
+                    <div class="level-track" id="levelTrack" data-level="l2" role="radiogroup" aria-label="档位">
                         <div class="level-pill" aria-hidden="true"></div>
-                        <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l1">
-                            <span class="lo-code"><span class="tri">▸</span>L1</span>
-                            <span class="lo-name">速答</span>
-                        </button>
-                        <button class="level-opt" type="button" role="radio" aria-checked="true" data-level="l2">
-                            <span class="lo-code"><span class="tri">▸</span>L2</span>
-                            <span class="lo-name">标准</span>
-                        </button>
-                        <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l3">
-                            <span class="lo-code"><span class="tri">▸</span>L3</span>
-                            <span class="lo-name">深研</span>
-                        </button>
+                        <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l1">Luna</button>
+                        <button class="level-opt" type="button" role="radio" aria-checked="true" data-level="l2">Sol</button>
+                        <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l3">Astra</button>
                     </div>
-                    <span class="level-desc" id="levelDesc">平衡速度与深度，覆盖大多数日常问答。</span>
-                    <button class="qh-link" id="clearBtn" type="button" title="清空当前对话">[× 清空]</button>
+                    <div class="x-wrap">
+                        <button class="x-btn" id="xBtn" type="button" aria-haspopup="true" aria-expanded="false" title="当前档位的高阶模型">X</button>
+                        <div class="x-pop" id="xPop" hidden role="menu">
+                            <div class="x-pop-title" id="xPopTitle">MODEL · SOL</div>
+                            <button class="x-opt" type="button" role="menuitemradio" aria-checked="true" data-boost="false">
+                                <span class="xo-name">标准模型</span><span class="xo-mark">[ ON ]</span>
+                            </button>
+                            <button class="x-opt" type="button" role="menuitemradio" aria-checked="false" data-boost="true">
+                                <span class="xo-name">X · 高阶模型</span><span class="xo-mark">[ ON ]</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="input-row">
                     <textarea id="input" rows="1" placeholder="输入消息……"></textarea>
-                    <button class="send-btn" id="sendBtn" type="button">
-                        <span class="btn-label">SEND</span><span aria-hidden="true">[⏎]</span>
-                    </button>
-                </div>
-                <div class="composer-hint">
-                    <kbd>Enter</kbd>发送 <kbd>Shift+Enter</kbd>换行 <kbd>Alt+1/2/3</kbd>切档
+                    <button class="send-btn" id="sendBtn" type="button">SEND</button>
                 </div>
             </div>
         </footer>
@@ -434,11 +468,11 @@ body.sh-dock-bottom .app {
 (function () {
     'use strict';
 
-    var STORE_KEY = 'queshi-session-v1';
+    var STORE_KEY = 'queshi-session-v2';
     var LEVELS = {
-        l1: { name: '速答', code: 'L1', desc: '最快响应，直接给结论，适合查事实、随口问。' },
-        l2: { name: '标准', code: 'L2', desc: '平衡速度与深度，覆盖大多数日常问答。' },
-        l3: { name: '深研', code: 'L3', desc: '先推演再作答：给出推理纪要，然后展开完整论述。' }
+        l1: { name: 'Luna' },     /* 普通档 · 轻快 */
+        l2: { name: 'Sol' },      /* 普通档 · 均衡 */
+        l3: { name: 'Astra' }     /* 星域档 · 深研 */
     };
 
     /* ---------------- DOM ---------------- */
@@ -448,28 +482,36 @@ body.sh-dock-bottom .app {
     var emptyEl    = $('#empty');
     var inputEl    = $('#input');
     var sendBtn    = $('#sendBtn');
-    var clearBtn   = $('#clearBtn');
     var trackEl    = $('#levelTrack');
-    var descEl     = $('#levelDesc');
+    var xBtn       = $('#xBtn');
+    var xPop       = $('#xPop');
+    var xPopTitle  = $('#xPopTitle');
 
     /* ---------------- 状态：只有一条对话 ---------------- */
     var session = load();
     var generating = false;
     var abortCtrl = null;
+    var bgApi = null;
 
     function load() {
         try {
             var s = JSON.parse(localStorage.getItem(STORE_KEY));
-            if (s && Array.isArray(s.msgs)) return { level: s.level || 'l2', msgs: s.msgs };
+            if (s && Array.isArray(s.msgs)) {
+                return {
+                    level: LEVELS[s.level] ? s.level : 'l2',
+                    boost: !!s.boost,
+                    msgs: s.msgs
+                };
+            }
         } catch (e) {}
-        return { level: 'l2', msgs: [] };
+        return { level: 'l2', boost: false, msgs: [] };
     }
     function save() {
         try { localStorage.setItem(STORE_KEY, JSON.stringify(session)); } catch (e) {}
     }
 
     /* ============================================================
-       分等级拨杆
+       档位拨杆
        ============================================================ */
     function setLevel(level, animate) {
         if (!LEVELS[level]) return;
@@ -478,10 +520,11 @@ body.sh-dock-bottom .app {
         trackEl.querySelectorAll('.level-opt').forEach(function (b) {
             b.setAttribute('aria-checked', b.dataset.level === level ? 'true' : 'false');
         });
-        descEl.textContent = LEVELS[level].desc;
-        descEl.classList.remove('flash');
-        void descEl.offsetWidth;
-        descEl.classList.add('flash');
+        /* Astra：页面内容区强制星域，与页眉的日夜切换互不干涉 */
+        var astra = level === 'l3';
+        document.body.classList.toggle('qs-astra', astra);
+        if (bgApi) bgApi.setMode(astra ? 'astra' : 'rain');
+        xPopTitle.textContent = 'MODEL · ' + LEVELS[level].name.toUpperCase();
         if (animate) {
             trackEl.classList.remove('scan');
             void trackEl.offsetWidth;
@@ -492,8 +535,37 @@ body.sh-dock-bottom .app {
 
     trackEl.addEventListener('click', function (e) {
         var btn = e.target.closest('.level-opt');
-        if (btn) { setLevel(btn.dataset.level, true); }
+        if (btn) setLevel(btn.dataset.level, true);
     });
+
+    /* ============================================================
+       X：当前档位的高阶模型开关（浮层）
+       ============================================================ */
+    function setBoost(on) {
+        session.boost = !!on;
+        xBtn.classList.toggle('on', session.boost);
+        xPop.querySelectorAll('.x-opt').forEach(function (b) {
+            b.setAttribute('aria-checked', (b.dataset.boost === 'true') === session.boost ? 'true' : 'false');
+        });
+        save();
+    }
+    function openX(open) {
+        xPop.hidden = !open;
+        xBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    xBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openX(xPop.hidden);
+    });
+    xPop.addEventListener('click', function (e) {
+        var b = e.target.closest('.x-opt');
+        if (b) { setBoost(b.dataset.boost === 'true'); openX(false); }
+    });
+    document.addEventListener('click', function (e) {
+        if (!xPop.hidden && !xPop.contains(e.target)) openX(false);
+    });
+    function onDocKey(e) { if (e.key === 'Escape') openX(false); }
+    document.addEventListener('keydown', onDocKey);
 
     /* ============================================================
        消息渲染
@@ -581,7 +653,7 @@ body.sh-dock-bottom .app {
         body.className = 'msg-body';
 
         if (m.role === 'assistant') {
-            // 推理纪要容器：为空时隐藏，L3 流式首个推理分片到达时再展开
+            // 推理纪要容器：为空时隐藏，Astra 流式首个推理分片到达时再展开
             var det0 = document.createElement('details');
             det0.className = 'reasoning';
             det0.open = live;                 // 实时生成时展开，历史渲染时折叠
@@ -629,7 +701,8 @@ body.sh-dock-bottom .app {
         inputEl.value = '';
         autoGrow();
 
-        var aiMsg = { role: 'assistant', content: '', reasoning: '', level: LEVELS[session.level].code, ts: Date.now() };
+        var stampText = LEVELS[session.level].name.toUpperCase() + (session.boost ? '·X' : '');
+        var aiMsg = { role: 'assistant', content: '', reasoning: '', level: stampText, ts: Date.now() };
         session.msgs.push(aiMsg);
         var row = buildMsg(aiMsg, true);
         innerEl.appendChild(row);
@@ -641,14 +714,14 @@ body.sh-dock-bottom .app {
         /* ASCII 等待动画，首个 token 到达后撤掉 */
         var waitRow = document.createElement('div');
         waitRow.className = 'msg-body';
-        waitRow.innerHTML = '<span class="suspense">/ CONNECTING</span>';
+        waitRow.innerHTML = '<span class="suspense">|</span>';
         row.appendChild(waitRow);
         var spinner = waitRow.querySelector('.suspense');
         var spinChars = ['|', '/', '-', '\\'];
         var si = 0;
         var spinTimer = setInterval(function () {
             si = (si + 1) % spinChars.length;
-            spinner.textContent = spinChars[si] + ' CONNECTING';
+            spinner.textContent = spinChars[si];
         }, 110);
 
         startGenerating();
@@ -661,7 +734,7 @@ body.sh-dock-bottom .app {
                     .map(function (m) { return { role: m.role, content: m.content }; });
 
                 var gotFirst = false;
-                var gen = callModel(history, session.level, abortCtrl.signal);
+                var gen = callModel(history, session.level, session.boost, abortCtrl.signal);
                 var item;
                 while (!(item = await gen.next()).done) {
                     var ev = item.value;
@@ -715,22 +788,19 @@ body.sh-dock-bottom .app {
     function startGenerating() {
         generating = true;
         sendBtn.classList.add('stop');
-        sendBtn.querySelector('.btn-label').textContent = 'STOP';
-        sendBtn.lastElementChild.textContent = '[■]';
+        sendBtn.textContent = 'STOP';
     }
     function stopGenerating() {
         generating = false;
         abortCtrl = null;
         sendBtn.classList.remove('stop');
-        sendBtn.querySelector('.btn-label').textContent = 'SEND';
-        sendBtn.lastElementChild.textContent = '[⏎]';
+        sendBtn.textContent = 'SEND';
     }
 
     sendBtn.addEventListener('click', function () {
         if (generating) { if (abortCtrl) abortCtrl.abort(); }
         else send(inputEl.value);
     });
-    clearBtn.addEventListener('click', clearChat);
 
     inputEl.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -750,7 +820,7 @@ body.sh-dock-bottom .app {
         if (b) send(b.dataset.q);
     });
 
-    /* 快捷键（命名留存，软导航离开时摘除） */
+    /* 快捷键（不展示在界面上；命名留存，软导航离开时摘除） */
     function onKeyDown(e) {
         if (e.altKey && /^[123]$/.test(e.key)) {
             e.preventDefault();
@@ -763,62 +833,72 @@ body.sh-dock-bottom .app {
     }
     document.addEventListener('keydown', onKeyDown);
 
-    /* 明暗主题由全局页眉的日月按钮接管（圆形扩散切换），
-       本页颜色全部走 CSS 变量，切换后自动跟随 */
-
     /* ============================================================
        ★ 模型接口预留 ★
        以后把模型拿过来时，只需要替换 callModel：
-         async function* callModel(history, level, signal)
+         async function* callModel(history, level, boost, signal)
            - history: [{role:'user'|'assistant', content}]
-           - level:   'l1' | 'l2' | 'l3'
+           - level:   'l1'(Luna) | 'l2'(Sol) | 'l3'(Astra)
+           - boost:   boolean，X 高阶模型是否开启（当前档位的更高规格实例）
            - signal:  AbortSignal，用户点 STOP 时 abort
-           - yield {type:'reasoning', text}  （可选，L3 推理过程）
+           - yield {type:'reasoning', text}  （可选，Astra 推理过程）
            - yield {type:'delta', text}      （流式正文分片）
        示例（SSE 流式接口）：
          var resp = await fetch('/api/chat', {method:'POST',
-             body: JSON.stringify({messages: history, level: level}), signal: signal});
+             body: JSON.stringify({messages: history, level: level, boost: boost}),
+             signal: signal});
          var reader = resp.body.getReader();
          // 解析 SSE，逐块 yield {type:'delta', text: chunk}
        ============================================================ */
-    async function* callModel(history, level, signal) {
+    async function* callModel(history, level, boost, signal) {
         var lastUser = '';
         for (var i = history.length - 1; i >= 0; i--) {
             if (history[i].role === 'user') { lastUser = history[i].content; break; }
         }
+        var q = lastUser.slice(0, 24);
 
         var plans = {
-            l1: { delay: 320, per: 16, thinking: null,
-                  body: '（速答）关于「' + lastUser.slice(0, 20) + '」：先划清问题边界，答案自然浮出来。要展开就切 L2。' },
+            l1: { delay: 280, per: 14, thinking: null,
+                  body: '「' + q + '」——先划清边界，答案自然浮出来。' },
 
-            l2: { delay: 520, per: 22, thinking: null,
-                  body: '「' + lastUser.slice(0, 24) + '」拆三步：\n' +
+            l2: { delay: 460, per: 20, thinking: null,
+                  body: '「' + q + '」拆三步：\n' +
                         '1. **现状**——分清哪些条件给定、哪些可变；\n' +
                         '2. **路径**——列两三条路，标出各自代价；\n' +
-                        '3. **落点**——按手头资源选一条，先动第一步。\n\n' +
-                        '信息不足就先补信息，别在迷雾里选路。要深挖切 L3。' },
+                        '3. **落点**——按手头资源选一条，先动第一步。' },
 
-            l3: { delay: 700, per: 24,
+            l3: { delay: 640, per: 22,
                   thinking:
-                    '> 意图：要的是可迁移的方法，不是单条结论。\n' +
+                    '> 意图：要可迁移的方法，不是单条结论。\n' +
                     '> 歧义：缺场景约束 → 给带条件的分层答案。\n' +
-                    '> 组织：现状 / 路径 / 落点，落到一个第一步。\n' +
-                    '> 风险：拒绝正确的废话，每段必须可执行。',
-                  body: '「' + lastUser.slice(0, 24) + '」深研如下。\n\n' +
-                        '底层通常是三个问题叠在一起：**信息不全、选项过多、反馈太慢**。\n\n' +
+                    '> 组织：现状 / 路径 / 落点，落到一个第一步。',
+                  body: '「' + q + '」深研。\n\n' +
+                        '底层是三个问题叠在一起：**信息不全、选项过多、反馈太慢**。\n\n' +
                         '- **最小验证**：用最低成本跑一次实验，让真实反馈替代脑补；\n' +
                         '- **类比迁移**：找结构相似的已知领域，把解法映射过来；\n' +
                         '- **逆向排除**：不列“该做什么”，改列“怎样算必败”。\n\n' +
-                        '> 第一步：把问题写成一句可证伪的假设，配一个 48 小时内出结果的小测试。\n\n' +
-                        '测试要能明确回答“继续 / 停止”，且失败损失可承受——满足就动手。' }
+                        '> 第一步：写成一句可证伪的假设，配一个 48 小时内出结果的小测试。' }
         };
 
         var p = plans[level];
 
+        /* X 高阶模型：更长首响、更深展开（接入后替换为真实高规格实例） */
+        if (boost) {
+            p = {
+                delay: p.delay + 260, per: 18,
+                thinking: p.thinking ? p.thinking + '\n> X：启用高阶实例，加大推演宽度与反例搜索。'
+                                     : '> X：高阶实例已介入，补充反例与边界条件。',
+                body: '[X] ' + p.body +
+                      (level === 'l3'
+                        ? '\n\n**X 增补**：为结论配两个反例压力测试——若假设不成立，最先失效的会是哪一环？失效信号长什么样？提前写下来，测试时对照核验。'
+                        : '\n\n**[X]** 若要更稳：补一个反例和一个边界条件，再决定动不动手。')
+            };
+        }
+
         await sleep(p.delay);
         if (signal.aborted) return;
 
-        /* L3：推理纪要逐片吐出 */
+        /* Astra：推理纪要逐片吐出 */
         if (p.thinking) {
             var rt = 0;
             for (var k = 1; k <= p.thinking.length; k++) {
@@ -844,53 +924,173 @@ body.sh-dock-bottom .app {
     function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
     /* ============================================================
-       空状态：字符雨（纯字符 canvas，极淡背景层）
+       整屏背景引擎（fixed canvas，软导航离开时整块移除）
+       - rain  ：Luna / Sol，极淡字符雨，跟随日夜
+       - astra ：Astra，整片深空流星，与日夜脱钩
        ============================================================ */
-    var rainTimer = 0;
-    function startRain() {
-        // 画布由脚本挂到 body：fixed 覆盖整屏，软导航离开时整块移除，不污染其他页
+    function startBackground() {
         var canvas = document.createElement('canvas');
         canvas.id = 'rain';
         canvas.setAttribute('aria-hidden', 'true');
         document.body.appendChild(canvas);
 
         var ctx = canvas.getContext('2d');
-        var CHARS = '确识QUESHI01アイウエオ<>/\\|[]{}=+*#$%&!?';
-        var cols, drops, fontSize = 16;
         var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var mode = session.level === 'l3' ? 'astra' : 'rain';
+        var raf = 0;
+        var W = 0, H = 0;
+
+        /* 字符雨状态 */
+        var CHARS = '确识QUESHI01アイウエオ<>/\\|[]{}=+*#$%&!?';
+        var fontSize = 16, cols = 0, drops = [];
+
+        /* 星域状态 */
+        var stars = [], meteors = [], nextMeteorAt = 0;
 
         function cssVar(name) {
             return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
         }
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            cols = Math.floor(canvas.width / fontSize);
+        function buildRain() {
+            cols = Math.floor(W / fontSize);
             drops = [];
             for (var i = 0; i < cols; i++) drops[i] = Math.random() * -40;
         }
-        function loop() {
-            ctx.fillStyle = cssVar('--paper');
+        function buildStars() {
+            stars = [];
+            var n = Math.round(W * H / 9000);
+            for (var i = 0; i < n; i++) {
+                stars.push({
+                    x: Math.random() * W, y: Math.random() * H,
+                    r: Math.random() * 1.2 + .3,
+                    ph: Math.random() * Math.PI * 2,
+                    sp: .4 + Math.random() * 1.4
+                });
+            }
+            meteors = [];
+            nextMeteorAt = 0;
+        }
+        function resize() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+            buildRain();
+            buildStars();
+            paintBase(true);
+        }
+
+        function paintBase(opaque) {
+            if (mode === 'astra') {
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#05070f';
+                ctx.fillRect(0, 0, W, H);
+            } else if (opaque) {
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = cssVar('--paper');
+                ctx.fillRect(0, 0, W, H);
+            }
+        }
+
+        /* ---------------- 字符雨 ---------------- */
+        function drawRain() {
             ctx.globalAlpha = .12;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = cssVar('--paper');
+            ctx.fillRect(0, 0, W, H);
             ctx.globalAlpha = 1;
             ctx.fillStyle = cssVar('--ink');
             ctx.font = fontSize + 'px "IBM Plex Mono", monospace';
             for (var i = 0; i < drops.length; i++) {
                 var ch = CHARS[Math.floor(Math.random() * CHARS.length)];
                 ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
-                if (drops[i] * fontSize > canvas.height && Math.random() > .975) drops[i] = 0;
+                if (drops[i] * fontSize > H && Math.random() > .975) drops[i] = 0;
                 drops[i]++;
             }
         }
+
+        /* ---------------- 流星 ---------------- */
+        function spawnMeteor() {
+            var speed = 8 + Math.random() * 6;
+            var ang = .32 + Math.random() * .16;          /* 斜向右下 */
+            meteors.push({
+                x: Math.random() * W * .9 - 100,
+                y: -60 + Math.random() * H * .35,
+                vx: speed,
+                vy: speed * ang,
+                len: 140 + Math.random() * 140,
+                w: .8 + Math.random() * 1.1
+            });
+        }
+        function drawAstra(t) {
+            /* 深空拖尾渐隐 */
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = 'rgba(5, 7, 15, .28)';
+            ctx.fillRect(0, 0, W, H);
+
+            /* 星点闪烁 */
+            for (var i = 0; i < stars.length; i++) {
+                var s = stars[i];
+                var a = .25 + .55 * (.5 + .5 * Math.sin(t * .001 * s.sp + s.ph));
+                ctx.globalAlpha = a;
+                ctx.fillStyle = '#dce6ff';
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            /* 随机生成流星 */
+            if (!reduce && t > nextMeteorAt) {
+                spawnMeteor();
+                nextMeteorAt = t + 420 + Math.random() * 1500;
+            } else if (reduce && !meteors.length) {
+                spawnMeteor();                               /* 降动态：只留一颗静帧 */
+            }
+
+            for (var k = meteors.length - 1; k >= 0; k--) {
+                var m = meteors[k];
+                var norm = Math.sqrt(m.vx * m.vx + m.vy * m.vy);
+                var ux = m.vx / norm, uy = m.vy / norm;
+                var tx = m.x - ux * m.len, ty = m.y - uy * m.len;
+                var g = ctx.createLinearGradient(m.x, m.y, tx, ty);
+                g.addColorStop(0, 'rgba(255,255,255,.95)');
+                g.addColorStop(.25, 'rgba(190,210,255,.5)');
+                g.addColorStop(1, 'rgba(120,150,255,0)');
+                ctx.strokeStyle = g;
+                ctx.lineWidth = m.w;
+                ctx.beginPath();
+                ctx.moveTo(m.x, m.y);
+                ctx.lineTo(tx, ty);
+                ctx.stroke();
+
+                if (!reduce) { m.x += m.vx; m.y += m.vy; }
+                if (m.y - m.len > H || m.x - m.len > W) meteors.splice(k, 1);
+            }
+        }
+
+        function frame(t) {
+            if (mode === 'astra') drawAstra(t || 0);
+            else drawRain();
+            raf = requestAnimationFrame(frame);
+        }
+
+        function setMode(next) {
+            if (next === mode) return;
+            mode = next;
+            meteors = [];
+            nextMeteorAt = 0;
+            paintBase(true);                               /* 模式切换：清掉上一种画面残影 */
+        }
+
         resize();
         window.addEventListener('resize', resize);
-        if (reduce) loop();
-        else rainTimer = setInterval(loop, 90);
-        return function stopRain() {
-            if (rainTimer) { clearInterval(rainTimer); rainTimer = 0; }
-            window.removeEventListener('resize', resize);
-            if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        if (reduce) frame(0);
+        else raf = requestAnimationFrame(frame);
+
+        return {
+            setMode: setMode,
+            stop: function () {
+                cancelAnimationFrame(raf);
+                window.removeEventListener('resize', resize);
+                if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+            }
         };
     }
 
@@ -898,16 +1098,18 @@ body.sh-dock-bottom .app {
        本页 CSS 直接据此做安全区避让，无需自己观察 */
 
     /* ---------------- 启动 ---------------- */
+    bgApi = startBackground();
+    setBoost(session.boost);
     setLevel(session.level, false);
     renderStream();
-    var stopRain = startRain();
 
-    /* 软导航离开本页：停字符雨、摘快捷键，避免空转与重复绑定。
-       body.sh-dock-bottom 归页眉组件管，这里不摘——玻璃仍在底部，
-       换入的主页/项目页要接着避让 */
+    /* 软导航离开本页：停背景引擎、摘监听、还原星域状态，避免空转与污染 */
     window.__optionextPageStop = function () {
-        if (stopRain) stopRain();
+        if (bgApi) { bgApi.stop(); bgApi = null; }
         document.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('keydown', onDocKey);
+        document.body.classList.remove('qs-astra');
+        openX(false);
         if (abortCtrl) abortCtrl.abort();
     };
 })();
