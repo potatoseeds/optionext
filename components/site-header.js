@@ -33,7 +33,7 @@
        根路径是一切页面的前缀，会导致首页项在每个页面都亮红点） */
     var NAV = [
         { cn: '药铺子', en: 'TEAM',      href: '/index.html',           root: true },
-        { cn: '确实',   en: 'QUESHI',    href: '#' },
+        { cn: '确实',   en: 'QUESHI',    href: '/queshi/index.html' },
         { cn: '案牍集', en: 'PROJECTS',  href: '/projects/index.html' }
     ];
 
@@ -122,7 +122,11 @@
     var navMob  = root.querySelector('.sh-mobile');
     var toggle = root.querySelector('.sh-toggle');
     var logoImg = root.querySelector('.sh-brand img');
-    var here = location.pathname.replace(/index\.html$/, '');
+    /* 当前路径：file:// 软导航时地址栏无法变化，取 page-transit 维护的软路径 */
+    function currentPath() {
+        return window.__optionextSoftPath || location.pathname;
+    }
+    var here = currentPath().replace(/index\.html$/, '');
     var navRefs = [];
 
     function isActive(item) {
@@ -135,7 +139,7 @@
 
     /* 软导航换页后只重刷红点（page-transit.js 派发事件），页眉节点不重建 */
     function refreshActive() {
-        here = location.pathname.replace(/index\.html$/, '');
+        here = currentPath().replace(/index\.html$/, '');
         navRefs.forEach(function (n) {
             n.d.classList.toggle('sh-active', isActive(n.item));
             n.m.classList.toggle('sh-active', isActive(n.item));
@@ -296,9 +300,18 @@
         try { localStorage.setItem(DOCK_KEY, docked ? 'bottom' : 'top'); } catch (e) {}
     }
 
+    /* docked 状态唯一出口：root 类（玻璃锚点）+ body 类（各页安全区避让
+       动画都挂在 body.sh-dock-bottom 上）。由页眉组件自己当属主，
+       软导航换页、页面停机都不再摘它——玻璃在底部，避让就一直在 */
+    function setDocked(next) {
+        docked = next;
+        root.classList.toggle('sh-docked', docked);
+        document.body.classList.toggle('sh-dock-bottom', docked);
+    }
+
     function initDock() {
         try { docked = localStorage.getItem(DOCK_KEY) === 'bottom'; } catch (e) { docked = false; }
-        root.classList.toggle('sh-docked', docked);
+        setDocked(docked);
         /* 锚点直接写 root.top：root 无 top 过渡，挂载同帧即终值，不闪不动。
            绝不能用 transform 承载吸附位——静止态玻璃 computed transform 必须是 none，
            否则 iOS/WKWebView backdrop-filter 模糊采样失效 */
@@ -386,8 +399,7 @@
             glass.classList.remove('sh-drag');
             clearShapeVars();
             if (doDock) {
-                docked = !docked;
-                root.classList.toggle('sh-docked', docked);
+                setDocked(!docked);
                 root.style.top = anchorTop().toFixed(1) + 'px';
                 saveDock();
             }
@@ -403,8 +415,7 @@
                2) 双 rAF 后解冻弹簧并清 --fy → 玻璃从原位一把弹簧飞到新锚点；
                3) 飞行结束 transitionend 摘除 .sh-live → 静止态 transform 回归 none。 */
             var visTop = glass.getBoundingClientRect().top;
-            docked = !docked;
-            root.classList.toggle('sh-docked', docked);
+            setDocked(!docked);
             var topVal = anchorTop().toFixed(1);
             root.style.top = topVal + 'px';
             saveDock();

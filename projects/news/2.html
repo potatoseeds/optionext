@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试新闻 · 贰 — 抽屉使用说明（长文测试）</title>
+    <script>
+        /* 与主站同键的主题防闪烁（iframe 与父页同源时共享 localStorage） */
+        (function () {
+            try {
+                var t = localStorage.getItem('optionext-theme') ||
+                    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.dataset.theme = t;
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper: #f4f3ef;
+            --ink: #141310;
+            --ink-70: rgba(20, 19, 16, .72);
+            --ink-45: rgba(20, 19, 16, .42);
+            --ink-25: rgba(20, 19, 16, .22);
+            --signal: #df3b2a;
+            --font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+            --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+            --ease-out: cubic-bezier(.22, 1, .36, 1);
+        }
+        :root[data-theme="dark"] {
+            --paper: #0f0e0c;
+            --ink: #e9e7e1;
+            --ink-70: rgba(233, 231, 225, .72);
+            --ink-45: rgba(233, 231, 225, .45);
+            --ink-25: rgba(233, 231, 225, .22);
+            --signal: #ef4d3a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            background: var(--paper);
+            color: var(--ink);
+            font-family: var(--font-sans);
+            font-size: 16px;
+            line-height: 1.85;
+            -webkit-font-smoothing: antialiased;
+            padding: clamp(22px, 3.4vw, 44px) clamp(20px, 4vw, 56px) clamp(28px, 4vw, 52px);
+        }
+        ::selection { background: var(--ink); color: var(--paper); }
+        .mono {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--ink-45);
+        }
+        article { max-width: 760px; margin: 0 auto; }
+        .doc-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 22px;
+            align-items: baseline;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--ink-25);
+            opacity: 0;
+            animation: rise .6s var(--ease-out) .05s forwards;
+        }
+        .doc-meta .pg { color: var(--signal); }
+        h1 {
+            font-size: clamp(22px, 2.6vw, 32px);
+            font-weight: 700;
+            line-height: 1.3;
+            letter-spacing: -.01em;
+            margin: 22px 0 20px;
+            opacity: 0;
+            animation: rise .6s var(--ease-out) .14s forwards;
+        }
+        .doc-body p {
+            font-size: 16px;
+            letter-spacing: .02em;
+            color: var(--ink-70);
+            margin-bottom: 16px;
+            opacity: 0;
+            animation: rise .6s var(--ease-out) forwards;
+        }
+        .doc-body p:nth-of-type(1) { animation-delay: .22s; }
+        .doc-body p:nth-of-type(2) { animation-delay: .28s; }
+        .doc-body p:nth-of-type(3) { animation-delay: .34s; }
+        .doc-body p:nth-of-type(4) { animation-delay: .40s; }
+        .doc-body strong { color: var(--ink); font-weight: 500; }
+        blockquote {
+            position: relative;
+            margin: 24px 0;
+            padding: 6px 0 6px 22px;
+            border-left: 2px solid var(--signal);
+            font-size: 17px;
+            line-height: 1.8;
+            color: var(--ink);
+            opacity: 0;
+            animation: rise .6s var(--ease-out) .46s forwards;
+        }
+        blockquote .mark {
+            font-family: var(--font-mono);
+            color: var(--signal);
+            margin-right: 10px;
+        }
+        ul.rules {
+            list-style: none;
+            margin: 6px 0 20px;
+            border-top: 1px dotted var(--ink-25);
+            opacity: 0;
+            animation: rise .6s var(--ease-out) .52s forwards;
+        }
+        ul.rules li {
+            display: grid;
+            grid-template-columns: 44px 1fr;
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px dotted var(--ink-25);
+            font-size: 15.5px;
+            letter-spacing: .02em;
+            color: var(--ink-70);
+        }
+        ul.rules li .n {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: .14em;
+            color: var(--signal);
+            padding-top: 5px;
+        }
+        .doc-sign {
+            margin-top: 26px;
+            padding-top: 16px;
+            border-top: 1px dotted var(--ink-25);
+            opacity: 0;
+            animation: rise .6s var(--ease-out) .60s forwards;
+        }
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .001ms !important;
+                animation-iteration-count: 1 !important;
+            }
+            .doc-meta, h1, .doc-body p, blockquote, ul.rules, .doc-sign { opacity: 1 !important; }
+        }
+    </style>
+</head>
+<body>
+    <article>
+        <header class="doc-meta">
+            <span class="mono pg">PG / 02</span>
+            <span class="mono">2026.10.14</span>
+            <span class="mono">TEST · 长文 / 列表测试</span>
+        </header>
+        <h1>测试新闻 · 贰：第二条用来确认高度与切换</h1>
+        <div class="doc-body">
+            <p>第二条测试新闻故意做得更长，还带一段引用和一张清单，用来检验两件事：一是<strong>抽屉高度能不能贴着内容走</strong>，二是在两条新闻之间来回切换时，已经载入的文档会不会老老实实待在匣子里。</p>
+            <p>点另一条板块，这一条会收起、另一条拉开；浏览器的前进与后退同样有效。地址栏里的 <span class="mono">?PG=2</span> 就是这条新闻的门牌号。</p>
+            <blockquote><span class="mark">「」</span>每一个新闻都是一个板块；点开之后，板块本身仍是那一页——只是匣子里多装了一份文档。</blockquote>
+            <p>后续新增新闻的动作很轻：放一个新的 HTML 文件进 <span class="mono">projects/news/</span>，在项目页复制一段板块、改编号与标题即可。</p>
+            <ul class="rules">
+                <li><span class="n">R.01</span><span>板块只展开一条：手风琴结构，不堆叠长页面。</span></li>
+                <li><span class="n">R.02</span><span>文档懒载入：点开才取文件，收起不卸载，来回切换不闪。</span></li>
+                <li><span class="n">R.03</span><span>链接可追踪：?PG=n 随地址栏走，前进后退、直链落地都成立。</span></li>
+            </ul>
+            <p>如果看到这段文字贴着抽屉底边、没有出现内部滚动条，说明高度上报链路工作正常。</p>
+        </div>
+        <footer class="doc-sign mono">— OPTIONEXT / 案牍集</footer>
+    </article>
+    <script src="../../components/frame-fit.js"></script>
+</body>
+</html>

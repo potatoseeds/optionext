@@ -107,9 +107,11 @@
     var card = root.querySelector('.mt-card');
     var themeBtn = root.querySelector('.mt-theme');
 
-    /* index.html / mobile.html 都归一化为目录，保证首页项高亮 */
+    /* index.html / mobile.html 都归一化为目录，保证首页项高亮。
+       file:// 软导航时地址栏无法变化，取 page-transit 维护的软路径 */
     function norm(p) { return p.replace(/(index|mobile)\.html$/i, ''); }
-    var here = norm(location.pathname);
+    function currentPath() { return window.__optionextSoftPath || location.pathname; }
+    var here = norm(currentPath());
 
     var itemRefs = [];
 
@@ -122,7 +124,7 @@
 
     /* 软导航换页后只重刷红点（page-transit.js 派发事件），底栏节点不重建 */
     function refreshActive() {
-        here = norm(location.pathname);
+        here = norm(currentPath());
         itemRefs.forEach(function (n) {
             var on = isActive(n.item);
             n.el.classList.toggle('mt-active', on);

@@ -31,7 +31,23 @@
     if (window.__OPTIONEXT_TRANSIT_LOADED__) return;
     window.__OPTIONEXT_TRANSIT_LOADED__ = true;
 
-    if (!window.fetch || !window.DOMParser || !window.history || !window.history.pushState) return;
+    if (!window.DOMParser || !window.history) return;
+
+    /* ---------- 站点根目录（由本组件自身 URL 推导，与页眉组件同款） ---------- */
+    var ROOT_HREF = null;
+    try {
+        ROOT_HREF = new URL('../', document.currentScript.src, document.baseURI).href;
+    } catch (e) {}
+
+    /* ---------- 页面清单（tools/build_manifest.py 生成） ----------
+       file:// 直开时 fetch/XHR 被浏览器安全策略禁止，软导航改从清单取
+       目标页 HTML；http(s) 下 fetch 失败（漏传/临时故障）时兜底。 */
+    function manifestGet(href) {
+        var m = window.__OPTIONEXT_PAGE_MANIFEST__;
+        if (!m || !m.pages || !ROOT_HREF || href.slice(0, ROOT_HREF.length) !== ROOT_HREF) return null;
+        var key = href.slice(ROOT_HREF.length).split('#')[0].split('?')[0];
+        return Object.prototype.hasOwnProperty.call(m.pages, key) ? m.pages[key] : null;
+    }
 
     var FADE = 240;
     var reduced = window.matchMedia &&
@@ -39,6 +55,7 @@
     if (reduced) FADE = 0;
 
     var busy = false;
+    var pendingHref = null;        // 过渡进行中又点了导航：排队，绝不放行成原生硬跳转
 
     /* ---------------- 真实文件 vs 显示地址 ----------------
        网络层永远请求【真实文件】（index.html / mobile.html /
@@ -70,6 +87,9 @@
        纯 replaceState，不刷新、不新增历史条目（device-guard 信任
        <html data-flavor>，不会因这个显示地址误跳） */
     (function () {
+        /* file:// 下 pushState/replaceState 一律被安全策略禁止：
+           地址栏保持初始文件地址，软路径由 window.__optionextSoftPath 维护 */
+        if (location.protocol === 'file:') return;
         var display = canonPath(location.pathname) + location.search + location.hash;
         var st = {};
         try { st = history.state || {}; } catch (e) {}
@@ -173,6 +193,12 @@
         }
         /* push===false（前进/后退）：历史条目本就是本层写入的规范形式，不再动 */
         docPath = targetUrl ? canonPath(targetUrl.pathname) + targetUrl.search : docPath;
+        /* file:// 下 pushState 抛 SecurityError、地址栏永不变化；页眉/底栏
+           依据这个软路径刷新栏目红点，http(s) 下清空、回归 location.pathname */
+        window.__optionextSoftPath =
+            location.protocol === 'file:' && targetUrl
+                ? canonPath(targetUrl.pathname) + targetUrl.search
+                : null;
 
         /* 目标带 hash（如 projects/x.html#sec）：换页后落到对应锚点；否则回顶 */
         var hashEl = targetUrl && targetUrl.hash
@@ -199,7 +225,40 @@
                 document.documentElement.classList.remove('page-leaving');
             });
         });
-        setTimeout(function () { busy = false; }, FADE + 80);
+        setTimeout(function () {
+            busy = false;
+            /* 过渡进行中被排队的点击：此时续航，避免原生硬加载导致页眉重建 */
+            if (pendingHref) {
+                var next = pendingHref;
+                pendingHref = null;
+                go(next, true);
+            }
+        }, FADE + 80);
+    }
+
+    /* 取目标页 HTML：
+       · file:// —— 浏览器禁止 fetch 本地文件，只从页面清单取；
+         清单缺页（新增页面未重新生成）才整页跳转
+       · http(s) —— 实时 fetch；失败时用清单兜底（如漏传文件的部署），
+         清单也没有才整页跳转 */
+    function fetchPage(href) {
+        if (location.protocol === 'file:') {
+            var cached = manifestGet(href);
+            return cached != null
+                ? Promise.resolve(cached)
+                : Promise.reject(new Error('manifest miss'));
+        }
+        if (!window.fetch) return Promise.reject(new Error('no fetch'));
+        return fetch(href, { credentials: 'same-origin' })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+            })
+            .catch(function (err) {
+                var fallback = manifestGet(href);
+                if (fallback != null) return fallback;
+                throw err;
+            });
     }
 
     function go(href, push) {
@@ -208,11 +267,7 @@
         document.documentElement.classList.add('page-leaving');
 
         setTimeout(function () {
-            fetch(href, { credentials: 'same-origin' })
-                .then(function (r) {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    return r.text();
-                })
+            fetchPage(href)
                 .then(function (html) { render(href, html, push); })
                 .catch(function () { hardGo(href); });
         }, FADE);
@@ -220,7 +275,7 @@
 
     /* ---------------- 点击拦截 ---------------- */
     document.addEventListener('click', function (e) {
-        if (busy || e.defaultPrevented) return;
+        if (e.defaultPrevented) return;
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
         var a = e.target.closest && e.target.closest('a[href]');
@@ -230,22 +285,28 @@
 
         var url;
         try { url = new URL(a.href, location.href); } catch (err) { return; }
-        if (url.origin !== location.origin) return;
-        if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+        /* 协议必须与当前文档一致（file↔http 混链交原生）；file:// 下
+           每个本地文件的 origin 都相同，同源判断无意义，改由 ROOT 前缀
+           + 页面清单命中与否决定（miss 时自然降级整页跳转） */
+        var isFile = location.protocol === 'file:';
+        if (url.protocol !== location.protocol) return;
+        if (!isFile && url.origin !== location.origin) return;
 
         /* 同一页面（规范地址相同，忽略 /index.html 与 / 的字面差异）：
            · 指向不同锚点（#team 等）→ 交给浏览器原生锚点滚动；
            · 重复点击当前栏目 → preventDefault 后什么都不做：
              不请求、不淡出、不重跑脚本，<main> 与页眉/底栏纹丝不动。
-           地址栏在落地时已规范，这里无需再动历史 */
-        if (canonPath(url.pathname) === canonPath(location.pathname) &&
-            url.search === location.search) {
+           必须用内部 docPath 比较：file:// 下地址栏永不更新，
+           location.pathname 始终是初始落地文件 */
+        if (canonPath(url.pathname) + url.search === docPath) {
             if (url.hash && url.hash !== location.hash) return;
             e.preventDefault();
             return;
         }
 
         e.preventDefault();
+        /* 过渡进行中：排队等续航，不放行成浏览器原生跳转（否则整页刷新、页眉重建） */
+        if (busy) { pendingHref = url.href; return; }
         go(url.href, true);
     });
 
@@ -254,6 +315,9 @@
        popstate —— 这种只改 hash 的情况必须放行，交给原生锚点行为 */
     window.addEventListener('popstate', function (e) {
         if (busy) return;
+        /* file:// 下软导航不产生历史条目（pushState 被禁）；路径级
+           popstate 只可能来自浏览器原生文件历史，放行不要拦 */
+        if (location.protocol === 'file:') return;
         if (canonPath(location.pathname) + location.search === docPath) return;
         /* 真实文件地址存在 state.f：软导航按它 fetch 真实文件；
            没有 state.f 的历史条目（非本层产生）→ 整页加载兜底 */

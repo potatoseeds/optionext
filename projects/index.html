@@ -35,6 +35,11 @@
             --font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
             --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
             --ease-out: cubic-bezier(.22, 1, .36, 1);
+            /* 页眉顶 / 底吸附安全区：玻璃底边约在 72px（top 14 + 条高 ~58），
+               上下各加呼吸距；沉底时顶部只需普通页边距 */
+            --sh-safe-top: 104px;
+            --sh-safe-bottom: 112px;
+            --sh-clear: 44px;
         }
 
         :root[data-theme="dark"] {
@@ -73,10 +78,19 @@
         }
 
         /* ============================================================
-           页面骨架（顶部为固定页眉预留空间）
+           页面骨架 + 页眉顶 / 底吸附避让（与确实页同一机制）
+           · 锚顶：顶部留安全距，标题不被玻璃压住（较旧版 132 小幅收紧）；
+           · 沉底：安全距挪到底部，顶部只留普通页边距。
+           padding 以 .5s 缓出双向过渡，与玻璃吸附飞行（~.62s）对齐；
+           transition 同时包含软导航淡入淡出属性。
            ============================================================ */
         .page {
-            padding: 132px clamp(28px, 5vw, 72px) 120px;
+            padding: var(--sh-safe-top) clamp(28px, 5vw, 72px) 104px;
+            transition: padding .5s var(--ease-out), opacity .24s ease, transform .24s ease;
+        }
+        body.sh-dock-bottom .page {
+            padding-top: var(--sh-clear);
+            padding-bottom: var(--sh-safe-bottom);
         }
         .page-inner { max-width: 1120px; margin: 0 auto; }
 
@@ -170,6 +184,110 @@
             outline-offset: 3px;
         }
 
+        /* ============================================================
+           新闻板块：档案行可点开，抽屉在原位展开，iframe 直接载入
+           对应 projects/news/<n>.html，地址栏同步 ?PG=<n>
+           ============================================================ */
+        .news-head {
+            display: grid;
+            grid-template-columns: 190px 1fr auto;
+            gap: clamp(24px, 4vw, 72px);
+            align-items: baseline;
+            width: 100%;
+            padding: 27px 8px;
+            background: none;
+            border: 0;
+            font: inherit;
+            color: var(--ink);
+            text-align: left;
+            cursor: pointer;
+        }
+        .news-head .news-meta {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: .14em;
+            color: var(--signal);
+        }
+        .news-head .news-meta .idx {
+            color: var(--ink-45);
+            margin-right: 12px;
+        }
+        .news-head .news-title {
+            font-size: 17px;
+            font-weight: 500;
+            line-height: 1.85;
+            letter-spacing: .02em;
+            transition: color .3s var(--ease-out);
+        }
+        .news-head .news-mark {
+            font-family: var(--font-mono);
+            font-size: 19px;
+            line-height: 1;
+            color: var(--ink-45);
+            transform: rotate(0deg);
+            transform-origin: 50% 45%;
+            transition: transform .45s var(--ease-out), color .3s var(--ease-out);
+        }
+        @media (hover: hover) {
+            .news-head:hover .news-title { color: var(--signal); }
+            .news-head:hover .news-mark { color: var(--signal); transform: rotate(90deg); }
+        }
+        .news-head:active .news-title { color: var(--signal); }
+        .news.is-open .news-title { color: var(--signal); }
+        .news.is-open .news-mark { color: var(--signal); transform: rotate(135deg); }
+        .news-head:focus-visible {
+            outline: 2px solid var(--signal);
+            outline-offset: 3px;
+        }
+
+        /* 抽屉：grid 行高 0fr → 1fr 实现高度自动的展开动画 */
+        .news-panel {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows .52s var(--ease-out);
+        }
+        .news.is-open .news-panel { grid-template-rows: 1fr; }
+        .news-panel-inner { min-height: 0; overflow: hidden; }
+        .news-drawer {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity .42s var(--ease-out) .06s,
+                        transform .42s var(--ease-out) .06s;
+            padding: 0 8px 36px;
+        }
+        .news.is-open .news-drawer { opacity: 1; transform: none; }
+
+        /* 匣子：左缘信号红线；未取到子文档高度前显示“载入中” */
+        .news-frame-box {
+            position: relative;
+            min-height: 190px;
+            border: 1px solid var(--ink-25);
+            border-left: 2px solid var(--signal);
+            background: var(--paper);
+            transition: min-height .3s var(--ease-out);
+        }
+        .news-frame-box.is-fit { min-height: 0; }
+        .news-frame-hint {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity .3s ease, visibility .3s ease;
+        }
+        .news-frame-box.is-fit .news-frame-hint { opacity: 0; visibility: hidden; }
+        .news-frame {
+            display: block;
+            width: 100%;
+            height: 0;
+            min-height: 0;
+            border: 0;
+            background: var(--paper);
+            opacity: 0;
+            transition: opacity .4s var(--ease-out);
+        }
+        .news-frame-box.is-fit .news-frame { opacity: 1; }
+
         @keyframes rise {
             from { opacity: 0; transform: translateY(18px); }
             to   { opacity: 1; transform: translateY(0); }
@@ -187,6 +305,8 @@
         /* 窄屏兜底（站点以 PC 为主，移动端由 guard 跳转） */
         @media (max-width: 1080px) {
             .registry-empty, .proj-row { grid-template-columns: 1fr; gap: 10px; padding: 22px 4px; }
+            .news-head { grid-template-columns: 1fr; gap: 9px; padding: 22px 4px; }
+            .news-drawer { padding: 0 4px 28px; }
         }
     </style>
 </head>
@@ -199,7 +319,7 @@
             </header>
 
             <div class="registry">
-                <!-- —— 项目行模板：新增项目时取消注释并按行复制 ——
+                <!-- —— 项目行模板：新增“整页项目”时取消注释并按行复制 ——
                 <a class="proj-row" href="#">
                     <span class="proj-meta"><span class="idx">01</span>2026 · ACTIVE</span>
                     <h3>项目名称</h3>
@@ -207,17 +327,59 @@
                 </a>
                 -->
 
-                <!-- 空状态：有首个项目后移除本行 -->
-                <div class="registry-empty">
-                    <span class="re-tag mono">EMPTY</span>
-                    <p class="re-text">药柜尚空，药方正在研磨中。</p>
-                </div>
+                <!-- —— 新闻板块：点开在原位展开抽屉，iframe 直接载入 news/<n>.html。
+                     新增新闻：复制整段 .news、改 data-pg / data-src / 标题即可，
+                     ?PG=<n> 会自动与该板块对应 —— -->
+                <section class="news" data-pg="1">
+                    <button class="news-head" type="button"
+                            aria-expanded="false" aria-controls="news-panel-1">
+                        <span class="news-meta"><span class="idx">01</span>2026.10.14 · TEST</span>
+                        <span class="news-title">测试新闻 · 壹：案牍集的匣子开张了</span>
+                        <span class="news-mark" aria-hidden="true">+</span>
+                    </button>
+                    <div class="news-panel" id="news-panel-1">
+                        <div class="news-panel-inner">
+                            <div class="news-drawer">
+                                <div class="news-frame-box">
+                                    <span class="news-frame-hint mono">载入中 · LOADING</span>
+                                    <iframe class="news-frame" title="测试新闻 · 壹"
+                                            data-src="news/1.html" loading="lazy"></iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="news" data-pg="2">
+                    <button class="news-head" type="button"
+                            aria-expanded="false" aria-controls="news-panel-2">
+                        <span class="news-meta"><span class="idx">02</span>2026.10.14 · TEST</span>
+                        <span class="news-title">测试新闻 · 贰：抽屉使用说明（长文测试）</span>
+                        <span class="news-mark" aria-hidden="true">+</span>
+                    </button>
+                    <div class="news-panel" id="news-panel-2">
+                        <div class="news-panel-inner">
+                            <div class="news-drawer">
+                                <div class="news-frame-box">
+                                    <span class="news-frame-hint mono">载入中 · LOADING</span>
+                                    <iframe class="news-frame" title="测试新闻 · 贰"
+                                            data-src="news/2.html" loading="lazy"></iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
     </main>
 
-    <script src="../components/site-header.js"></script>
+    <script src="../components/site-header.js?v=20261014c"></script>
+    <!-- 新闻板块抽屉：?PG=n 追踪 + iframe 载入（必须在软导航之前） -->
+    <script src="../components/news-drawer.js?v=20261014a"></script>
+    <script data-page-script>window.OptionextNewsDrawer()</script>
+    <!-- 页面清单：file:// 直开时供软导航取页（必须在软导航之前） -->
+    <script src="../components/page-manifest.js?v=20261014c"></script>
     <!-- 软导航：页眉保活 + 主体淡入淡出（必须在页眉组件之后） -->
-    <script src="../components/page-transit.js"></script>
+    <script src="../components/page-transit.js?v=20261014b"></script>
 </body>
 </html>

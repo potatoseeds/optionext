@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-flavor="desk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>确识 QUESHI · 对话台</title>
+<link rel="icon" type="image/png" href="../image/LOGO%E7%AB%96%E7%89%88.png">
+<script>
+    /* 主题防闪烁：早于一切渲染确定“明 / 暗”另一半 */
+    (function () {
+        try {
+            var t = localStorage.getItem('optionext-theme') ||
+                (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.dataset.theme = t;
+        } catch (e) {}
+    })();
+</script>
+<script src="../components/device-guard.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style data-page="queshi">
+/* ============================================================
+   QUESHI 确识 · 对话台 01
+   沿用 OPTIONEXT 纸墨 / 信号红系统 · 双主题 · 纯字符动效
+   ============================================================ */
+:root {
+    --paper: #f4f3ef;
+    --paper-deep: #ebe9e2;
+    --ink: #141310;
+    --ink-rgb: 20, 19, 16;
+    --ink-70: rgba(20, 19, 16, .72);
+    --ink-45: rgba(20, 19, 16, .42);
+    --ink-25: rgba(20, 19, 16, .22);
+    --ink-12: rgba(20, 19, 16, .12);
+    --signal: #df3b2a;
+    --signal-soft: rgba(223, 59, 42, .12);
+    --font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --ease-out: cubic-bezier(.22, 1, .36, 1);
+}
+:root[data-theme="dark"] {
+    --paper: #0f0e0c;
+    --paper-deep: #16150f;
+    --ink: #e9e7e1;
+    --ink-rgb: 233, 231, 225;
+    --ink-70: rgba(233, 231, 225, .72);
+    --ink-45: rgba(233, 231, 225, .45);
+    --ink-25: rgba(233, 231, 225, .22);
+    --ink-12: rgba(233, 231, 225, .12);
+    --signal: #ef4d3a;
+    --signal-soft: rgba(239, 77, 58, .16);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+::selection { background: var(--ink); color: var(--paper); }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: var(--font-mono); }
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb { background: var(--ink-25); border: 3px solid var(--paper); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================================
+   布局：单列对话台
+   页眉为浮动玻璃组件（site-header.js）：锚顶时内容让出顶部安全距，
+   锚底时让出底部安全距，保证消息首条与输入区永远不被玻璃压住。
+   ============================================================ */
+:root {
+    --sh-safe-top: 92px;
+    --sh-safe-bottom: 120px;                     /* 页眉锚底时多抬一档，输入区离玻璃更远 */
+}
+/* .app 即 <main>：软导航只搬运 <main>，避让与布局都挂在它身上。
+   transition 同时包含 page-transit 的淡出淡入属性 */
+.app {
+    display: flex; flex-direction: column;
+    height: 100vh;
+    min-width: 0; min-height: 0;
+    position: relative; z-index: 1;              /* 压在 fixed 字符雨之上，自身无底色 */
+    padding-top: var(--sh-safe-top);             /* 页眉锚顶：避让 */
+    transition: padding .5s var(--ease-out), opacity .24s ease, transform .24s ease;
+}
+body.sh-dock-bottom .app {
+    padding-top: 0;                              /* 页眉锚底：改为避让底部 */
+    padding-bottom: var(--sh-safe-bottom);
+}
+
+/* dock 行右侧小控件（清空） */
+.qh-link {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+    color: var(--ink-45); white-space: nowrap;
+    transition: color .2s;
+}
+.qh-link:hover { color: var(--signal); }
+@media (max-width: 1080px) { .level-desc { display: none; } }
+
+/* ---------------- 消息流 ---------------- */
+.stream {
+    flex: 1; overflow-y: auto;
+    position: relative;
+    min-height: 0;
+}
+.stream-inner {
+    max-width: 860px; margin: 0 auto;
+    padding: 36px 40px 20px;
+}
+
+/* 整屏字符雨：fixed 锚定视口，不随 .stream 的局部滚动滚走 */
+#rain {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    opacity: .07; pointer-events: none;
+    z-index: 0;
+}
+
+/* 空状态：居中欢迎层（hidden 必须显式压住 display:flex） */
+.empty {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 40px; text-align: center;
+    z-index: 0;
+}
+.empty[hidden], .stream-inner[hidden] { display: none !important; }
+.empty-inner { position: relative; z-index: 1; }
+.empty h1 {
+    font-family: var(--font-mono);
+    font-size: clamp(34px, 5vw, 58px);
+    font-weight: 600; letter-spacing: .08em;
+    line-height: 1.1;
+}
+.empty h1 .slash { color: var(--signal); }
+@keyframes blink { 50% { opacity: 0; } }
+.suggests { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 44px; }
+.suggest {
+    padding: 9px 16px;
+    border: 1px dashed var(--ink-25);
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em;
+    color: var(--ink-70);
+    transition: border-color .25s, color .25s, transform .25s var(--ease-out), background .25s;
+}
+.suggest:hover { border-color: var(--signal); color: var(--signal); transform: translateY(-2px); background: var(--signal-soft); }
+.suggest .arr { color: var(--signal); margin-right: 7px; }
+
+/* 消息行：档案条目式，不做气泡 */
+.msg { margin-bottom: 30px; animation: msgIn .5s var(--ease-out) both; }
+@keyframes msgIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.msg-meta {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .16em;
+    color: var(--ink-45);
+    margin-bottom: 8px;
+}
+.msg-meta .who { color: var(--ink); }
+.msg.msg-ai .msg-meta .who { color: var(--signal); }
+.msg-meta .stamp { padding: 1px 6px; border: 1px solid var(--ink-25); }
+.msg.msg-ai .msg-meta .stamp { border-color: var(--signal); color: var(--signal); }
+
+.msg-body { font-size: 15.5px; color: var(--ink); }
+.msg.msg-user .msg-body {
+    display: inline-block;
+    padding: 12px 18px;
+    border: 1px dashed var(--ink-25);
+    background: var(--ink-12);
+}
+.msg.msg-ai .msg-body {
+    padding-left: 18px;
+    border-left: 2px solid var(--signal);
+}
+.msg-body p { margin: 0 0 10px; }
+.msg-body p:last-child { margin-bottom: 0; }
+.msg-body ul, .msg-body ol { margin: 6px 0 12px; padding-left: 22px; }
+.msg-body li { margin: 4px 0; }
+.msg-body h1, .msg-body h2, .msg-body h3 { margin: 14px 0 8px; line-height: 1.3; }
+.msg-body h3 { font-size: 16px; }
+.msg-body code {
+    font-family: var(--font-mono); font-size: .88em;
+    background: var(--ink-12); padding: 1px 6px;
+}
+.msg-body pre {
+    margin: 10px 0;
+    background: var(--ink); color: var(--paper);
+    padding: 14px 16px; overflow-x: auto;
+}
+.msg-body pre code { background: none; padding: 0; color: inherit; font-size: 12.5px; line-height: 1.6; }
+.msg-body strong { font-weight: 700; }
+.msg-body blockquote {
+    border-left: 2px solid var(--ink-25); padding-left: 14px;
+    color: var(--ink-70); margin: 8px 0;
+}
+
+/* 推理纪要（L3） */
+.reasoning {
+    margin: 2px 0 10px;
+    border: 1px dotted var(--ink-25);
+}
+.reasoning summary {
+    padding: 7px 12px; cursor: pointer;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .14em;
+    color: var(--ink-45);
+    list-style: none;
+    user-select: none;
+}
+.reasoning summary::-webkit-details-marker { display: none; }
+.reasoning summary::before { content: '[ + ]'; margin-right: 8px; color: var(--signal); }
+.reasoning[open] summary::before { content: '[ - ]'; }
+.reasoning .r-body {
+    padding: 4px 12px 11px 30px;
+    font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
+    color: var(--ink-45);
+    white-space: pre-wrap;
+}
+
+.typing-cursor {
+    display: inline-block;
+    width: .58em; height: 1.15em;
+    background: var(--signal);
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    animation: blink .9s steps(1) infinite;
+}
+
+/* 生成等待 ASCII spinner */
+.suspense {
+    font-family: var(--font-mono); font-size: 13px; color: var(--signal);
+    letter-spacing: .1em;
+}
+
+/* ============================================================
+   输入区 + 分等级拨杆（核心控件）
+   ============================================================ */
+.composer {
+    flex-shrink: 0;
+    border-top: 1px solid var(--ink-25);
+    padding: 14px 40px 16px;
+    background: var(--paper);
+}
+.composer-inner { max-width: 860px; margin: 0 auto; }
+
+/* ---------- 分等级选择器 ---------- */
+.level-dock {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 12px;
+}
+.level-tag {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-45);
+    white-space: nowrap;
+}
+.level-track {
+    position: relative;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    flex: 1; max-width: 460px;
+    border: 1px solid var(--ink);
+}
+.level-pill {
+    position: absolute; top: 0; bottom: 0; left: 0;
+    width: 33.3334%;
+    background: var(--ink);
+    transition: transform .42s var(--ease-out);
+    z-index: 0;
+    overflow: hidden;
+}
+.level-track[data-level="l1"] .level-pill { transform: translateX(0); }
+.level-track[data-level="l2"] .level-pill { transform: translateX(100%); }
+.level-track[data-level="l3"] .level-pill { transform: translateX(200%); }
+/* 切换瞬间的信号红扫描线 */
+.level-pill::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--signal);
+    transform: translateX(-101%);
+}
+.level-track.scan .level-pill::after { animation: scan .42s var(--ease-out); }
+@keyframes scan {
+    0%   { transform: translateX(-101%); }
+    100% { transform: translateX(101%); }
+}
+.level-opt {
+    position: relative; z-index: 1;
+    padding: 9px 10px 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    transition: color .3s var(--ease-out);
+}
+.level-opt .lo-code {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em;
+}
+.level-opt .lo-code .tri { color: var(--signal); margin-right: 5px; }
+.level-opt .lo-name { font-size: 13px; font-weight: 500; line-height: 1.3; }
+.level-opt[aria-checked="true"] { color: var(--paper); }
+.level-opt:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+
+.level-desc {
+    flex: 1;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em;
+    color: var(--ink-70);
+    min-width: 0;
+}
+.level-desc::before { content: '> '; color: var(--signal); }
+.level-desc.flash { animation: descIn .35s var(--ease-out); }
+@keyframes descIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---------- 输入框 ---------- */
+.input-row {
+    display: flex; align-items: flex-end; gap: 12px;
+    border: 1px solid var(--ink-25);
+    background: var(--paper);
+    padding: 10px 8px 10px 16px;
+    transition: border-color .25s;
+}
+.input-row:focus-within { border-color: var(--ink); }
+#input {
+    flex: 1;
+    resize: none; border: none; outline: none;
+    background: transparent; color: var(--ink);
+    font: inherit; font-size: 15px; line-height: 1.55;
+    max-height: 160px;
+    padding: 4px 0;
+}
+#input::placeholder { color: var(--ink-45); }
+
+.send-btn {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 10px 20px;
+    background: var(--ink); color: var(--paper);
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em;
+    border: 1px solid var(--ink);
+    transition: background .3s var(--ease-out), color .3s var(--ease-out);
+}
+.send-btn:hover { background: transparent; color: var(--ink); }
+.send-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.send-btn.stop { background: var(--signal); border-color: var(--signal); color: #fff; }
+.send-btn.stop:hover { background: transparent; color: var(--signal); }
+
+.composer-hint {
+    margin-top: 9px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+    color: var(--ink-45);
+}
+.composer-hint kbd {
+    font-family: var(--font-mono);
+    border: 1px solid var(--ink-25); padding: 0 5px; margin: 0 2px;
+    color: var(--ink-70);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<!-- 整屏字符雨背景由页面脚本挂载到 body（软导航换页时随之创建/移除） -->
+<main class="app">
+    <section class="stream" id="stream">
+            <!-- 空状态 -->
+            <div class="empty" id="empty">
+                <div class="empty-inner">
+                    <h1>确识<span class="slash">/</span>QUESHI</h1>
+                    <div class="suggests" id="suggests">
+                        <button class="suggest" type="button" data-q="用三句话解释什么是期权"><span class="arr">&gt;&gt;</span>用三句话解释什么是期权</button>
+                        <button class="suggest" type="button" data-q="帮我拆解一个产品冷启动方案"><span class="arr">&gt;&gt;</span>拆解一个产品冷启动方案</button>
+                        <button class="suggest" type="button" data-q="这段代码为什么会有竞态问题？"><span class="arr">&gt;&gt;</span>分析一段代码的竞态问题</button>
+                    </div>
+                </div>
+            </div>
+            <div class="stream-inner" id="streamInner" hidden></div>
+        </section>
+
+        <!-- ================= 输入区 ================= -->
+        <footer class="composer">
+            <div class="composer-inner">
+
+                <!-- 分等级拨杆 -->
+                <div class="level-dock">
+                    <span class="level-tag">DEPTH/档位</span>
+                    <div class="level-track" id="levelTrack" data-level="l2" role="radiogroup" aria-label="思考深度">
+                        <div class="level-pill" aria-hidden="true"></div>
+                        <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l1">
+                            <span class="lo-code"><span class="tri">▸</span>L1</span>
+                            <span class="lo-name">速答</span>
+                        </button>
+                        <button class="level-opt" type="button" role="radio" aria-checked="true" data-level="l2">
+                            <span class="lo-code"><span class="tri">▸</span>L2</span>
+                            <span class="lo-name">标准</span>
+                        </button>
+                        <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l3">
+                            <span class="lo-code"><span class="tri">▸</span>L3</span>
+                            <span class="lo-name">深研</span>
+                        </button>
+                    </div>
+                    <span class="level-desc" id="levelDesc">平衡速度与深度，覆盖大多数日常问答。</span>
+                    <button class="qh-link" id="clearBtn" type="button" title="清空当前对话">[× 清空]</button>
+                </div>
+
+                <div class="input-row">
+                    <textarea id="input" rows="1" placeholder="输入消息……"></textarea>
+                    <button class="send-btn" id="sendBtn" type="button">
+                        <span class="btn-label">SEND</span><span aria-hidden="true">[⏎]</span>
+                    </button>
+                </div>
+                <div class="composer-hint">
+                    <kbd>Enter</kbd>发送 <kbd>Shift+Enter</kbd>换行 <kbd>Alt+1/2/3</kbd>切档
+                </div>
+            </div>
+        </footer>
+</main>
+
+<!-- 全局页眉：LOGO / 导航 / 日月主题切换 / 可拖拽吸附顶底 -->
+<script src="../components/site-header.js?v=20261014c"></script>
+<!-- 页面清单：file:// 直开时供软导航取页（必须在软导航之前） -->
+<script src="../components/page-manifest.js?v=20261014c"></script>
+<!-- 软导航：与全站一致，页眉不重载、只换 <main> -->
+<script src="../components/page-transit.js?v=20261014b"></script>
+<script data-page-script>
+/* ============================================================
+   QUESHI 确识 · 对话台逻辑（单对话）
+   ============================================================ */
+(function () {
+    'use strict';
+
+    var STORE_KEY = 'queshi-session-v1';
+    var LEVELS = {
+        l1: { name: '速答', code: 'L1', desc: '最快响应，直接给结论，适合查事实、随口问。' },
+        l2: { name: '标准', code: 'L2', desc: '平衡速度与深度，覆盖大多数日常问答。' },
+        l3: { name: '深研', code: 'L3', desc: '先推演再作答：给出推理纪要，然后展开完整论述。' }
+    };
+
+    /* ---------------- DOM ---------------- */
+    var $ = function (s) { return document.querySelector(s); };
+    var streamEl   = $('#stream');
+    var innerEl    = $('#streamInner');
+    var emptyEl    = $('#empty');
+    var inputEl    = $('#input');
+    var sendBtn    = $('#sendBtn');
+    var clearBtn   = $('#clearBtn');
+    var trackEl    = $('#levelTrack');
+    var descEl     = $('#levelDesc');
+
+    /* ---------------- 状态：只有一条对话 ---------------- */
+    var session = load();
+    var generating = false;
+    var abortCtrl = null;
+
+    function load() {
+        try {
+            var s = JSON.parse(localStorage.getItem(STORE_KEY));
+            if (s && Array.isArray(s.msgs)) return { level: s.level || 'l2', msgs: s.msgs };
+        } catch (e) {}
+        return { level: 'l2', msgs: [] };
+    }
+    function save() {
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(session)); } catch (e) {}
+    }
+
+    /* ============================================================
+       分等级拨杆
+       ============================================================ */
+    function setLevel(level, animate) {
+        if (!LEVELS[level]) return;
+        session.level = level;
+        trackEl.dataset.level = level;
+        trackEl.querySelectorAll('.level-opt').forEach(function (b) {
+            b.setAttribute('aria-checked', b.dataset.level === level ? 'true' : 'false');
+        });
+        descEl.textContent = LEVELS[level].desc;
+        descEl.classList.remove('flash');
+        void descEl.offsetWidth;
+        descEl.classList.add('flash');
+        if (animate) {
+            trackEl.classList.remove('scan');
+            void trackEl.offsetWidth;
+            trackEl.classList.add('scan');
+        }
+        save();
+    }
+
+    trackEl.addEventListener('click', function (e) {
+        var btn = e.target.closest('.level-opt');
+        if (btn) { setLevel(btn.dataset.level, true); }
+    });
+
+    /* ============================================================
+       消息渲染
+       ============================================================ */
+    function esc(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /* 极简 Markdown：fence 代码块、行内 code/粗体/斜体、标题、列表、引用 */
+    function markdown(src) {
+        var fences = [];
+        src = src.replace(/```[^\n]*\n?([\s\S]*?)```/g, function (m, code) {
+            fences.push('<pre><code>' + esc(code.replace(/\n+$/, '')) + '</code></pre>');
+            return '\u0000F' + (fences.length - 1) + '\u0000';
+        });
+
+        var lines = esc(src).split('\n');
+        var out = [];
+        var ul = false, ol = false, para = [];
+
+        function inline(s) {
+            return s
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+        }
+        function closePara() {
+            if (para.length) { out.push('<p>' + para.join('<br>') + '</p>'); para = []; }
+        }
+        function closeLists() {
+            if (ul) { out.push('</ul>'); ul = false; }
+            if (ol) { out.push('</ol>'); ol = false; }
+        }
+
+        lines.forEach(function (raw) {
+            var f = raw.match(/^\u0000F(\d+)\u0000$/);
+            if (f) { closePara(); closeLists(); out.push(fences[+f[1]]); return; }
+            if (/^\s*$/.test(raw)) { closePara(); closeLists(); return; }
+
+            var h = raw.match(/^(#{1,3})\s+(.*)$/);
+            if (h) { closePara(); closeLists(); out.push('<h' + h[1].length + '>' + inline(h[2]) + '</h' + h[1].length + '>'); return; }
+
+            var u = raw.match(/^\s*[-*]\s+(.*)$/);
+            if (u) { closePara(); if (ol) { out.push('</ol>'); ol = false; } if (!ul) { out.push('<ul>'); ul = true; } out.push('<li>' + inline(u[1]) + '</li>'); return; }
+
+            var o = raw.match(/^\s*\d+[.、]\s+(.*)$/);
+            if (o) { closePara(); if (ul) { out.push('</ul>'); ul = false; } if (!ol) { out.push('<ol>'); ol = true; } out.push('<li>' + inline(o[1]) + '</li>'); return; }
+
+            var q = raw.match(/^&gt;\s?(.*)$/);
+            if (q) { closePara(); closeLists(); out.push('<blockquote>' + inline(q[1]) + '</blockquote>'); return; }
+
+            closeLists();
+            para.push(inline(raw));
+        });
+        closePara(); closeLists();
+        return out.join('');
+    }
+
+    function renderStream() {
+        innerEl.innerHTML = '';
+        if (!session.msgs.length) {
+            emptyEl.hidden = false;
+            innerEl.hidden = true;
+            return;
+        }
+        emptyEl.hidden = true;
+        innerEl.hidden = false;
+        session.msgs.forEach(function (m) { innerEl.appendChild(buildMsg(m, false)); });
+        streamEl.scrollTop = streamEl.scrollHeight;
+    }
+
+    function buildMsg(m, live) {
+        var row = document.createElement('div');
+        row.className = 'msg ' + (m.role === 'user' ? 'msg-user' : 'msg-ai');
+
+        var meta = document.createElement('div');
+        meta.className = 'msg-meta';
+        var who = m.role === 'user' ? 'YOU' : 'QUESHI';
+        meta.innerHTML =
+            '<span class="who">' + who + '</span>' +
+            (m.role === 'assistant' && m.level ? '<span class="stamp">' + m.level + '</span>' : '');
+        row.appendChild(meta);
+
+        var body = document.createElement('div');
+        body.className = 'msg-body';
+
+        if (m.role === 'assistant') {
+            // 推理纪要容器：为空时隐藏，L3 流式首个推理分片到达时再展开
+            var det0 = document.createElement('details');
+            det0.className = 'reasoning';
+            det0.open = live;                 // 实时生成时展开，历史渲染时折叠
+            if (!m.reasoning) det0.style.display = 'none';
+            det0.innerHTML = '<summary>REASONING / 推理纪要</summary><div class="r-body"></div>';
+            det0.querySelector('.r-body').textContent = m.reasoning || '';
+            body.appendChild(det0);
+        }
+
+        var content = document.createElement('div');
+        content.className = 'msg-content';
+        content.innerHTML = m.content ? markdown(m.content) : '';
+        body.appendChild(content);
+
+        if (live) {
+            var cur = document.createElement('span');
+            cur.className = 'typing-cursor';
+            cur.style.display = 'none';       // 首 token 到达前隐藏
+            body.appendChild(cur);
+        }
+        row.appendChild(body);
+        return row;
+    }
+
+    function nearBottom() {
+        return streamEl.scrollHeight - streamEl.scrollTop - streamEl.clientHeight < 120;
+    }
+
+    /* ============================================================
+       发送 & 流式接收
+       ============================================================ */
+    function send(text) {
+        text = (text || '').trim();
+        if (!text || generating) return;
+
+        var userMsg = { role: 'user', content: text, ts: Date.now() };
+        session.msgs.push(userMsg);
+        save();
+
+        // 首条消息：离开空状态
+        if (session.msgs.length === 1) renderStream();
+        else innerEl.appendChild(buildMsg(userMsg, false));
+        streamEl.scrollTop = streamEl.scrollHeight;
+
+        inputEl.value = '';
+        autoGrow();
+
+        var aiMsg = { role: 'assistant', content: '', reasoning: '', level: LEVELS[session.level].code, ts: Date.now() };
+        session.msgs.push(aiMsg);
+        var row = buildMsg(aiMsg, true);
+        innerEl.appendChild(row);
+        var contentBox = row.querySelector('.msg-content');
+        var reasoningBox = row.querySelector('.r-body');
+        var reasoningWrap = row.querySelector('.reasoning');
+        var cursor = row.querySelector('.typing-cursor');
+
+        /* ASCII 等待动画，首个 token 到达后撤掉 */
+        var waitRow = document.createElement('div');
+        waitRow.className = 'msg-body';
+        waitRow.innerHTML = '<span class="suspense">/ CONNECTING</span>';
+        row.appendChild(waitRow);
+        var spinner = waitRow.querySelector('.suspense');
+        var spinChars = ['|', '/', '-', '\\'];
+        var si = 0;
+        var spinTimer = setInterval(function () {
+            si = (si + 1) % spinChars.length;
+            spinner.textContent = spinChars[si] + ' CONNECTING';
+        }, 110);
+
+        startGenerating();
+        abortCtrl = new AbortController();
+
+        (async function () {
+            try {
+                var history = session.msgs
+                    .filter(function (m) { return m !== aiMsg; })
+                    .map(function (m) { return { role: m.role, content: m.content }; });
+
+                var gotFirst = false;
+                var gen = callModel(history, session.level, abortCtrl.signal);
+                var item;
+                while (!(item = await gen.next()).done) {
+                    var ev = item.value;
+                    if (!gotFirst) {
+                        gotFirst = true;
+                        clearInterval(spinTimer);
+                        waitRow.remove();
+                        cursor.style.display = '';
+                    }
+                    if (ev.type === 'reasoning') {
+                        aiMsg.reasoning += ev.text;
+                        reasoningWrap.style.display = '';
+                        reasoningBox.textContent = aiMsg.reasoning;
+                        if (nearBottom()) streamEl.scrollTop = streamEl.scrollHeight;
+                    } else if (ev.type === 'delta') {
+                        aiMsg.content += ev.text;
+                        contentBox.innerHTML = markdown(aiMsg.content);
+                        if (cursor.parentElement !== contentBox.parentElement) {
+                            contentBox.parentElement.appendChild(cursor);
+                        }
+                        if (nearBottom()) streamEl.scrollTop = streamEl.scrollHeight;
+                    }
+                }
+            } catch (err) {
+                if (waitRow.parentNode) waitRow.remove();
+                if (cursor) cursor.style.display = '';
+                aiMsg.content += '\n\n> [ERROR] ' + (err && err.message ? err.message : '信号中断');
+                contentBox.innerHTML = markdown(aiMsg.content);
+            } finally {
+                clearInterval(spinTimer);
+                if (waitRow.parentNode) waitRow.remove();
+                if (cursor) cursor.remove();
+                var det = row.querySelector('.reasoning');
+                if (det && aiMsg.reasoning) det.open = false;   // 生成结束，推理纪要折叠
+                save();
+                stopGenerating();
+                inputEl.focus();
+            }
+        })();
+    }
+
+    function clearChat() {
+        if (generating) return;
+        if (!session.msgs.length) return;
+        session.msgs = [];
+        save();
+        renderStream();
+        inputEl.focus();
+    }
+
+    function startGenerating() {
+        generating = true;
+        sendBtn.classList.add('stop');
+        sendBtn.querySelector('.btn-label').textContent = 'STOP';
+        sendBtn.lastElementChild.textContent = '[■]';
+    }
+    function stopGenerating() {
+        generating = false;
+        abortCtrl = null;
+        sendBtn.classList.remove('stop');
+        sendBtn.querySelector('.btn-label').textContent = 'SEND';
+        sendBtn.lastElementChild.textContent = '[⏎]';
+    }
+
+    sendBtn.addEventListener('click', function () {
+        if (generating) { if (abortCtrl) abortCtrl.abort(); }
+        else send(inputEl.value);
+    });
+    clearBtn.addEventListener('click', clearChat);
+
+    inputEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+            e.preventDefault();
+            send(inputEl.value);
+        }
+    });
+    function autoGrow() {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+    }
+    inputEl.addEventListener('input', autoGrow);
+
+    /* 建议问题 */
+    $('#suggests').addEventListener('click', function (e) {
+        var b = e.target.closest('.suggest');
+        if (b) send(b.dataset.q);
+    });
+
+    /* 快捷键（命名留存，软导航离开时摘除） */
+    function onKeyDown(e) {
+        if (e.altKey && /^[123]$/.test(e.key)) {
+            e.preventDefault();
+            setLevel('l' + e.key, true);
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+            e.preventDefault();
+            clearChat();
+        }
+    }
+    document.addEventListener('keydown', onKeyDown);
+
+    /* 明暗主题由全局页眉的日月按钮接管（圆形扩散切换），
+       本页颜色全部走 CSS 变量，切换后自动跟随 */
+
+    /* ============================================================
+       ★ 模型接口预留 ★
+       以后把模型拿过来时，只需要替换 callModel：
+         async function* callModel(history, level, signal)
+           - history: [{role:'user'|'assistant', content}]
+           - level:   'l1' | 'l2' | 'l3'
+           - signal:  AbortSignal，用户点 STOP 时 abort
+           - yield {type:'reasoning', text}  （可选，L3 推理过程）
+           - yield {type:'delta', text}      （流式正文分片）
+       示例（SSE 流式接口）：
+         var resp = await fetch('/api/chat', {method:'POST',
+             body: JSON.stringify({messages: history, level: level}), signal: signal});
+         var reader = resp.body.getReader();
+         // 解析 SSE，逐块 yield {type:'delta', text: chunk}
+       ============================================================ */
+    async function* callModel(history, level, signal) {
+        var lastUser = '';
+        for (var i = history.length - 1; i >= 0; i--) {
+            if (history[i].role === 'user') { lastUser = history[i].content; break; }
+        }
+
+        var plans = {
+            l1: { delay: 320, per: 16, thinking: null,
+                  body: '（速答）关于「' + lastUser.slice(0, 20) + '」：先划清问题边界，答案自然浮出来。要展开就切 L2。' },
+
+            l2: { delay: 520, per: 22, thinking: null,
+                  body: '「' + lastUser.slice(0, 24) + '」拆三步：\n' +
+                        '1. **现状**——分清哪些条件给定、哪些可变；\n' +
+                        '2. **路径**——列两三条路，标出各自代价；\n' +
+                        '3. **落点**——按手头资源选一条，先动第一步。\n\n' +
+                        '信息不足就先补信息，别在迷雾里选路。要深挖切 L3。' },
+
+            l3: { delay: 700, per: 24,
+                  thinking:
+                    '> 意图：要的是可迁移的方法，不是单条结论。\n' +
+                    '> 歧义：缺场景约束 → 给带条件的分层答案。\n' +
+                    '> 组织：现状 / 路径 / 落点，落到一个第一步。\n' +
+                    '> 风险：拒绝正确的废话，每段必须可执行。',
+                  body: '「' + lastUser.slice(0, 24) + '」深研如下。\n\n' +
+                        '底层通常是三个问题叠在一起：**信息不全、选项过多、反馈太慢**。\n\n' +
+                        '- **最小验证**：用最低成本跑一次实验，让真实反馈替代脑补；\n' +
+                        '- **类比迁移**：找结构相似的已知领域，把解法映射过来；\n' +
+                        '- **逆向排除**：不列“该做什么”，改列“怎样算必败”。\n\n' +
+                        '> 第一步：把问题写成一句可证伪的假设，配一个 48 小时内出结果的小测试。\n\n' +
+                        '测试要能明确回答“继续 / 停止”，且失败损失可承受——满足就动手。' }
+        };
+
+        var p = plans[level];
+
+        await sleep(p.delay);
+        if (signal.aborted) return;
+
+        /* L3：推理纪要逐片吐出 */
+        if (p.thinking) {
+            var rt = 0;
+            for (var k = 1; k <= p.thinking.length; k++) {
+                if (signal.aborted) return;
+                if (k % 2 === 0) {
+                    yield { type: 'reasoning', text: p.thinking.slice(rt, k) };
+                    rt = k;
+                    await sleep(9);
+                }
+            }
+            if (rt < p.thinking.length) yield { type: 'reasoning', text: p.thinking.slice(rt) };
+            await sleep(160);
+        }
+
+        /* 正文：逐字符流式 */
+        for (var i = 0; i < p.body.length; i++) {
+            if (signal.aborted) return;
+            yield { type: 'delta', text: p.body[i] };
+            if (i % 3 === 0) await sleep(p.per);
+        }
+    }
+
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    /* ============================================================
+       空状态：字符雨（纯字符 canvas，极淡背景层）
+       ============================================================ */
+    var rainTimer = 0;
+    function startRain() {
+        // 画布由脚本挂到 body：fixed 覆盖整屏，软导航离开时整块移除，不污染其他页
+        var canvas = document.createElement('canvas');
+        canvas.id = 'rain';
+        canvas.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(canvas);
+
+        var ctx = canvas.getContext('2d');
+        var CHARS = '确识QUESHI01アイウエオ<>/\\|[]{}=+*#$%&!?';
+        var cols, drops, fontSize = 16;
+        var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function cssVar(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            cols = Math.floor(canvas.width / fontSize);
+            drops = [];
+            for (var i = 0; i < cols; i++) drops[i] = Math.random() * -40;
+        }
+        function loop() {
+            ctx.fillStyle = cssVar('--paper');
+            ctx.globalAlpha = .12;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = cssVar('--ink');
+            ctx.font = fontSize + 'px "IBM Plex Mono", monospace';
+            for (var i = 0; i < drops.length; i++) {
+                var ch = CHARS[Math.floor(Math.random() * CHARS.length)];
+                ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > .975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        resize();
+        window.addEventListener('resize', resize);
+        if (reduce) loop();
+        else rainTimer = setInterval(loop, 90);
+        return function stopRain() {
+            if (rainTimer) { clearInterval(rainTimer); rainTimer = 0; }
+            window.removeEventListener('resize', resize);
+            if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        };
+    }
+
+    /* body.sh-dock-bottom 由页眉组件（site-header.js）统一维护，
+       本页 CSS 直接据此做安全区避让，无需自己观察 */
+
+    /* ---------------- 启动 ---------------- */
+    setLevel(session.level, false);
+    renderStream();
+    var stopRain = startRain();
+
+    /* 软导航离开本页：停字符雨、摘快捷键，避免空转与重复绑定。
+       body.sh-dock-bottom 归页眉组件管，这里不摘——玻璃仍在底部，
+       换入的主页/项目页要接着避让 */
+    window.__optionextPageStop = function () {
+        if (stopRain) stopRain();
+        document.removeEventListener('keydown', onKeyDown);
+        if (abortCtrl) abortCtrl.abort();
+    };
+})();
+</script>
+</body>
+</html>

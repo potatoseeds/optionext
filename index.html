@@ -36,6 +36,8 @@
             --font-sans: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
             --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
             --ease-out: cubic-bezier(.22, 1, .36, 1);
+            /* 页眉玻璃底边约在 72px（top 14 + 条高 ~58），沉底避让再多留一档呼吸 */
+            --sh-safe-bottom: 112px;
         }
 
         :root[data-theme="dark"] {
@@ -188,10 +190,26 @@
         }
 
         /* ============================================================
-           结构区：面板卡片
+           页眉顶 / 底吸附避让（与确实页同一机制）
+           · 锚顶：hero 保持整屏出血——玻璃浮于字符矩阵之上本就是
+             本页设计，顶部不让；
+           · 沉底：主体底部以 .5s 缓出让出安全距，台账末行不被玻璃压住，
+             节奏与玻璃吸附飞行（~.62s）对齐。
+           transition 同时包含软导航淡入淡出属性（类选择器压过
+           page-transit 注入的裸 main 规则）
+           ============================================================ */
+        main.home {
+            transition: padding .5s var(--ease-out), opacity .24s ease, transform .24s ease;
+        }
+        body.sh-dock-bottom main.home {
+            padding-bottom: var(--sh-safe-bottom);
+        }
+
+        /* ============================================================
+           结构区：面板卡片（上下留白较旧版小幅收紧）
            ============================================================ */
         .structure {
-            padding: 110px clamp(28px, 5vw, 72px) 120px;
+            padding: 96px clamp(28px, 5vw, 72px) 104px;
         }
         .structure-inner { max-width: 1120px; margin: 0 auto; }
         .structure-head {
@@ -286,7 +304,7 @@
     </style>
 </head>
 <body>
-    <main>
+    <main class="home">
         <!-- ================= HERO：整屏 ASCII 矩阵 ================= -->
         <section class="hero" id="hero">
             <canvas id="matrix" aria-hidden="true"></canvas>
@@ -1043,8 +1061,10 @@
     })();
     </script>
     <!-- 站点页眉组件（路径自解析，子目录页面同样可引用） -->
-    <script src="components/site-header.js"></script>
+    <script src="components/site-header.js?v=20261014c"></script>
+    <!-- 页面清单：file:// 直开时供软导航取页（必须在软导航之前） -->
+    <script src="components/page-manifest.js?v=20261014c"></script>
     <!-- 软导航：页眉保活 + 主体淡入淡出（必须在页眉组件之后） -->
-    <script src="components/page-transit.js"></script>
+    <script src="components/page-transit.js?v=20261014b"></script>
 </body>
 </html>
