@@ -185,8 +185,25 @@
         var x = r.left + r.width / 2, y = r.top + r.height / 2;
 
         document.documentElement.classList.add('mt-vt');
-        var tr = document.startViewTransition(function () { commitTheme(next); });
-        var clearVt = function () { document.documentElement.classList.remove('mt-vt'); };
+        /* 兜底：部分环境（后台 / 隐藏文档、WebView 兼容差异）VT 回调延迟
+           或被中止，500ms 后主题仍未落地就直接提交，绝不让切换“哑火” */
+        var guard = setTimeout(function () {
+            if (curTheme() !== next) commitTheme(next);
+            document.documentElement.classList.remove('mt-vt');
+        }, 500);
+        var tr;
+        try {
+            tr = document.startViewTransition(function () { commitTheme(next); });
+        } catch (e) {
+            clearTimeout(guard);
+            document.documentElement.classList.remove('mt-vt');
+            commitTheme(next);
+            return;
+        }
+        var clearVt = function () {
+            clearTimeout(guard);
+            document.documentElement.classList.remove('mt-vt');
+        };
         tr.finished.then(clearVt, clearVt);
 
         tr.ready.then(function () {

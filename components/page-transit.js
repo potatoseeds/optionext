@@ -119,9 +119,78 @@
         }
     })();
 
+    /* ============================================================
+       file:// 虚拟 hash 路由
+       ------------------------------------------------------------
+       file:// 下 history.pushState 被安全策略禁止，软导航无法改地址栏。
+       改用 location.hash 承载“站点相对虚拟地址”：
+           物理文件 D:/Optionext/projects/index.html
+           + 地址栏 hash  #/projects/?PG=1
+       · hash 在 file:// 下可读写、产生历史条目（前进/后退生效）；
+       · 路由 hash 一律以 '#/' 开头，普通锚点 '#xxx' 仍走原生滚动；
+       · 网络层依旧取物理文件（页面清单），hash 只负责显示与历史。
+       ============================================================ */
+    var IS_FILE = location.protocol === 'file:';
+    var ROOT_PATHNAME = null;
+    try { ROOT_PATHNAME = new URL(ROOT_HREF).pathname; } catch (e) {}
+
+    /* 真实文件 key（'projects/mobile.html'）→ 虚拟目录（'/projects/'） */
+    function virtFromKey(key) {
+        return '/' + String(key || '').replace(/(?:index|mobile)\.html$/i, '');
+    }
+    function filePhysicalKey() {
+        if (ROOT_PATHNAME && location.pathname.indexOf(ROOT_PATHNAME) === 0)
+            return decodeURIComponent(location.pathname.slice(ROOT_PATHNAME.length));
+        return location.pathname.slice(location.pathname.lastIndexOf('/') + 1);
+    }
+    function fileKeyOfHref(href) {
+        try {
+            var u = new URL(href, location.href);
+            if (u.protocol !== 'file:') return null;
+            if (ROOT_PATHNAME && u.pathname.indexOf(ROOT_PATHNAME) === 0)
+                return decodeURIComponent(u.pathname.slice(ROOT_PATHNAME.length));
+            return decodeURIComponent(u.pathname.slice(u.pathname.lastIndexOf('/') + 1));
+        } catch (e) { return null; }
+    }
+    function fileVirtOfHref(href) {
+        var key = fileKeyOfHref(href);
+        if (key == null) return null;
+        var search = '';
+        try { search = new URL(href, location.href).search || ''; } catch (e) {}
+        return virtFromKey(key) + search;
+    }
+    /* 虚拟地址 → 物理文件 href（按当前 desk/mob flavor 选 index/mobile） */
+    function fileHrefOfVirt(virt) {
+        var path = (virt || '').split('?')[0].split('#')[0];
+        var qi = virt.indexOf('?');
+        var search = qi !== -1 ? virt.slice(qi) : '';
+        var key;
+        if (path === '/' || path === '') {
+            key = FLAVOR === 'mob' ? 'mobile.html' : 'index.html';
+        } else {
+            key = path.replace(/^\/+/, '').replace(/\/+$/, '') + '/' +
+                  (FLAVOR === 'mob' ? 'mobile.html' : 'index.html');
+        }
+        return ROOT_HREF + key + search;
+    }
+    function fileVirtPage(virt) {
+        return (virt || '').split('?')[0].split('#')[0];
+    }
+    /* 地址栏 hash 承载的虚拟地址；无路由 hash 时由物理文件推导 */
+    function fileCurrentVirt() {
+        var h = location.hash || '';
+        if (h.charAt(1) === '/') return h.slice(1);
+        return virtFromKey(filePhysicalKey()) + location.search;
+    }
+
     /* 当前已渲染文档的规范路径（不含 hash）。
+       http(s)：物理路径规范化；file://：虚拟地址（hash 或物理推导）。
        点击 <a href="#xxx"> 产生的 popstate 只改 hash，据此识别并放行 */
-    var docPath = canonPath(location.pathname) + location.search;
+    var docPath = IS_FILE
+        ? fileCurrentVirt()
+        : canonPath(location.pathname) + location.search;
+    /* file:// 落地即给页眉/底栏一个正确软路径（栏目红点不等首次导航） */
+    if (IS_FILE) window.__optionextSoftPath = docPath;
 
     /* ---------------- 过渡样式（只注入一次） ---------------- */
     var style = document.createElement('style');
@@ -202,17 +271,29 @@
         var display = targetUrl
             ? canonPath(targetUrl.pathname) + targetUrl.search + targetUrl.hash
             : href;
-        if (push !== false) {
+        if (IS_FILE) {
+            /* file://：把虚拟地址写进 hash（地址栏可见、产生历史条目、
+               前进/后退经 hashchange 回本层）。物理文件地址始终不变。 */
+            var fkey = fileKeyOfHref(href);
+            var fvirt = (fkey != null ? virtFromKey(fkey)
+                                     : canonPath(targetUrl ? targetUrl.pathname : '')) +
+                        (targetUrl ? targetUrl.search : '');
+            if (push !== false) {
+                var wantHash = '#' + fvirt;
+                if (location.hash !== wantHash) {
+                    try { location.hash = wantHash; } catch (e) {}
+                }
+            }
+            docPath = fvirt;
+            window.__optionextSoftPath = fvirt;
+        } else if (push !== false) {
             try { history.pushState({ optionextTransit: 1, f: href }, '', display); } catch (e) {}
+            /* push===false（前进/后退）：历史条目本就是本层写入的规范形式，不再动 */
+            docPath = targetUrl ? canonPath(targetUrl.pathname) + targetUrl.search : docPath;
+            window.__optionextSoftPath = null;
+        } else {
+            docPath = targetUrl ? canonPath(targetUrl.pathname) + targetUrl.search : docPath;
         }
-        /* push===false（前进/后退）：历史条目本就是本层写入的规范形式，不再动 */
-        docPath = targetUrl ? canonPath(targetUrl.pathname) + targetUrl.search : docPath;
-        /* file:// 下 pushState 抛 SecurityError、地址栏永不变化；页眉/底栏
-           依据这个软路径刷新栏目红点，http(s) 下清空、回归 location.pathname */
-        window.__optionextSoftPath =
-            location.protocol === 'file:' && targetUrl
-                ? canonPath(targetUrl.pathname) + targetUrl.search
-                : null;
 
         /* 目标带 hash（如 projects/x.html#sec）：换页后落到对应锚点；否则回顶 */
         var hashEl = targetUrl && targetUrl.hash
@@ -310,9 +391,18 @@
            · 指向不同锚点（#team 等）→ 交给浏览器原生锚点滚动；
            · 重复点击当前栏目 → preventDefault 后什么都不做：
              不请求、不淡出、不重跑脚本，<main> 与页眉/底栏纹丝不动。
-           必须用内部 docPath 比较：file:// 下地址栏永不更新，
-           location.pathname 始终是初始落地文件 */
-        if (canonPath(url.pathname) + url.search === docPath) {
+           http(s) 用物理规范路径；file:// 物理文件永不切换，必须按
+           hash 承载的虚拟地址比较，否则“回根目录再点当前栏目”会误判 */
+        if (isFile) {
+            var tvirt = fileVirtOfHref(url.href);
+            if (tvirt === docPath) {
+                /* '#xxx' 普通锚点（非 '#/' 路由 hash）交原生滚动 */
+                if (url.hash && url.hash.slice(0, 2) !== '#/' &&
+                    url.hash !== location.hash) return;
+                e.preventDefault();
+                return;
+            }
+        } else if (canonPath(url.pathname) + url.search === docPath) {
             if (url.hash && url.hash !== location.hash) return;
             e.preventDefault();
             return;
@@ -327,16 +417,48 @@
     /* ---------------- 前进 / 后退 ----------------
        注意：点击页内 <a href="#xxx"> 是同源文档内跳转，浏览器同样会派发
        popstate —— 这种只改 hash 的情况必须放行，交给原生锚点行为 */
-    window.addEventListener('popstate', function (e) {
+    function onBack() {
         if (busy) return;
-        /* file:// 下软导航不产生历史条目（pushState 被禁）；路径级
-           popstate 只可能来自浏览器原生文件历史，放行不要拦 */
-        if (location.protocol === 'file:') return;
+
+        if (IS_FILE) {
+            var h = location.hash || '';
+            /* 非 '#/' 路由 hash：普通锚点 / 浏览器原生行为，放行 */
+            if (h.charAt(1) !== '/') return;
+            var nv = fileCurrentVirt();
+            if (nv === docPath) return;
+            if (fileVirtPage(nv) === fileVirtPage(docPath)) {
+                /* 同栏目、仅查询串变化（项目页抽屉 ?PG=n 的开合）：
+                   不整页重渲染，只同步软路径；抽屉自己的 popstate
+                   监听会据 ?PG 展开 / 收起 */
+                docPath = nv;
+                window.__optionextSoftPath = nv;
+                return;
+            }
+            /* 跨栏目前进 / 后退：按虚拟地址还原物理文件，软导航取清单 */
+            go(fileHrefOfVirt(nv), false);
+            return;
+        }
+
         if (canonPath(location.pathname) + location.search === docPath) return;
         /* 真实文件地址存在 state.f：软导航按它 fetch 真实文件；
            没有 state.f 的历史条目（非本层产生）→ 整页加载兜底 */
-        var f = e.state && e.state.f;
+        var f = history.state && history.state.f;
         if (f) go(f, false);
         else hardGo(location.href);
-    });
+    }
+    /* hash 变化在浏览器里 popstate / hashchange 都会派发；
+       两入口共用同一判重逻辑，重复触发自然被 nv===docPath 挡掉 */
+    window.addEventListener('popstate', onBack);
+    window.addEventListener('hashchange', onBack);
+
+    /* ---------------- file:// 落地引导 ----------------
+       物理文件与路由 hash（#/…）指向不同栏目时（刷新、收藏直开），
+       以 hash 为准软导航一次，保证“所见地址”与页面内容一致 */
+    if (IS_FILE && location.hash.charAt(1) === '/') {
+        var bootVirt = fileCurrentVirt();
+        var physVirt = virtFromKey(filePhysicalKey());
+        if (fileVirtPage(bootVirt) !== fileVirtPage(physVirt)) {
+            go(fileHrefOfVirt(bootVirt), false);
+        }
+    }
 })();

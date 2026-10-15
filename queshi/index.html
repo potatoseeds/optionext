@@ -461,6 +461,9 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 <script src="../components/page-manifest.js?v=20261015g"></script>
 <!-- 软导航：与全站一致，页眉不重载、只换 <main> -->
 <script src="../components/page-transit.js?v=20261015f"></script>
+<!-- Luna：MMSEG 分词 wasm + 词典 + 中性 3322 多阶链（base64 内联，file:// 可直开） -->
+<script src="plugins/luna/luna-assets.js"></script>
+<script src="plugins/luna/luna.js"></script>
 <script data-page-script>
 /* ============================================================
    QUESHI 确识 · 对话台逻辑（单对话）
@@ -850,11 +853,69 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
          var reader = resp.body.getReader();
          // 解析 SSE，逐块 yield {type:'delta', text: chunk}
        ============================================================ */
+    /* ============================================================
+       Luna（l1）：本地多阶混合马尔科夫链
+       - MMSEG 分词在 wasm 内完成，生成与原生 markov_gen 位级一致
+       - 引擎单例懒装载（首次切到 Luna 发问时装，约百毫秒级）
+       - X 接缝：emo8 为 8 情感链大模型，等模型插件就位后，
+         用 Luna.createEngine(wasm, dict, emo8Bytes) 装入并按 chain 选维，
+         在此之前 X 开启时回落中性链并明示
+       ============================================================ */
+    var lunaEnginePromise = null;
+    var lunaCallCount = 0;
+    function ensureLuna() {
+        if (!window.Luna) return Promise.reject(new Error('Luna 脚本未载入'));
+        if (!lunaEnginePromise) {
+            lunaEnginePromise = window.Luna.loadDefault().catch(function (e) {
+                lunaEnginePromise = null;
+                throw e;
+            });
+        }
+        return lunaEnginePromise;
+    }
+
+    async function* callLuna(text, boost, signal) {
+        var engine;
+        try { engine = await ensureLuna(); }
+        catch (e) { throw new Error('Luna 引擎装载失败：' + (e && e.message ? e.message : e)); }
+        if (signal.aborted) return;
+
+        if (boost) {
+            /* emo8 接缝：大模型未到位，先回落中性链 */
+            yield { type: 'delta', text: '〔X · emo8 高阶链尚未装入，本次由 Luna 中性链代答〕\n\n' };
+            await sleep(220);
+            if (signal.aborted) return;
+        } else {
+            await sleep(140);
+        }
+
+        var rngBase = (Date.now() ^ Math.imul(lunaCallCount++, 2654435761)) >>> 0;
+        var r = engine.reply(text, { chain: 0, sample: 0, rngBase: rngBase });
+        if (!r.tokens.length) {
+            yield { type: 'delta', text: '……' };
+            return;
+        }
+        for (var i = 0; i < r.tokens.length; i++) {
+            if (signal.aborted) return;
+            yield { type: 'delta', text: r.tokens[i] };
+            /* 动作感：按 token 长度微调节奏，标点不停顿 */
+            var pause = /[，。！？：；、,.!?;:]/.test(r.tokens[i]) ? 26 : 52;
+            await sleep(pause + Math.min(90, r.tokens[i].length * 14));
+        }
+    }
+
     async function* callModel(history, level, boost, signal) {
         var lastUser = '';
         for (var i = history.length - 1; i >= 0; i--) {
             if (history[i].role === 'user') { lastUser = history[i].content; break; }
         }
+
+        /* Luna 档：接本地真实生成 */
+        if (level === 'l1') {
+            yield* callLuna(lastUser, boost, signal);
+            return;
+        }
+
         var q = lastUser.slice(0, 24);
 
         var plans = {

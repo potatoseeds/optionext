@@ -200,9 +200,27 @@
         }
 
         document.documentElement.classList.add('sh-vt');
-        var transition = document.startViewTransition(function () { commitTheme(next); });
+        /* 兜底：VT 回调在隐藏文档 / 部分 WebView 中可能延迟或中止，
+           500ms 后主题仍未落地就直接提交，避免切换“哑火” */
+        var vtNext = next;
+        var guard = setTimeout(function () {
+            if (currentTheme() !== vtNext) commitTheme(vtNext);
+            document.documentElement.classList.remove('sh-vt');
+        }, 500);
+        var transition;
+        try {
+            transition = document.startViewTransition(function () { commitTheme(vtNext); });
+        } catch (e) {
+            clearTimeout(guard);
+            document.documentElement.classList.remove('sh-vt');
+            commitTheme(vtNext);
+            return;
+        }
 
-        var clearVt = function () { document.documentElement.classList.remove('sh-vt'); };
+        var clearVt = function () {
+            clearTimeout(guard);
+            document.documentElement.classList.remove('sh-vt');
+        };
         transition.finished.then(clearVt, clearVt);
 
         transition.ready.then(function () {

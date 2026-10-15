@@ -56,6 +56,23 @@
     else document.addEventListener('DOMContentLoaded', boot);
     window.addEventListener('load', measure);
 
+    /* 主题跟随：iframe 是独立文档，父页（新闻抽屉 news-drawer.js）
+       切换明暗后会 postMessage 推主题；同源 http(s) 下父页改 localStorage
+       也会产生 storage 事件。两路任一到达即落地，并立即重测高度 */
+    function applyTheme(t) {
+        if (t !== 'dark' && t !== 'light') return;
+        if (document.documentElement.dataset.theme === t) return;
+        document.documentElement.dataset.theme = t;
+        setTimeout(measure, 60);
+    }
+    window.addEventListener('message', function (e) {
+        var d = e.data;
+        if (d && d.type === 'optionext:frame-theme') applyTheme(d.theme);
+    });
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'optionext-theme') applyTheme(e.newValue);
+    });
+
     /* 字体到位后排版高度可能变化 */
     if (document.fonts && document.fonts.ready) {
         document.fonts.ready.then(measure, function () {});

@@ -41,9 +41,23 @@
         var blocks = Array.prototype.slice.call(document.querySelectorAll('.news[data-pg]'));
         if (!blocks.length) return null;
 
-        /* ---------- ?PG 读写 ---------- */
-        function pgFromSearch(search) {
-            var m = /[?&]PG=(\d+)/i.exec(search || location.search);
+        /* ---------- ?PG 读写 ----------
+           http(s)：参数在 location.search；
+           file://：软导航把虚拟地址放在路由 hash（#/projects/?PG=1），
+           直接双击物理文件带 ?PG=1 时参数仍在 location.search */
+        function virtSearch() {
+            if (location.protocol === 'file:') {
+                var h = location.hash || '';
+                if (h.charAt(1) === '/') {
+                    var qi = h.indexOf('?');
+                    return qi !== -1 ? h.slice(qi) : '';
+                }
+                return location.search || '';
+            }
+            return location.search || '';
+        }
+        function pgFromSearch() {
+            var m = /[?&]PG=(\d+)/i.exec(virtSearch());
             return m ? m[1] : null;
         }
 
@@ -115,6 +129,32 @@
             it.timers = [];
         }
 
+        /* ---------- 主题同步到子文档 ----------
+           外壳（site-header / mobile-tabbar）只改父页 <html data-theme>，
+           iframe 是独立文档不会跟随。两条通道：
+           · 同源 http(s)：直接写子文档 documentElement.dataset.theme；
+           · file://（跨文档直读被拒）：postMessage，由 frame-fit.js 接收。
+           子文档初载时也立即推一次当前主题 */
+        function currentTheme() {
+            return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+        }
+        function pushTheme(it, theme) {
+            if (!it.frame || !it.loaded) return;
+            try {
+                if (it.frame.contentDocument && it.frame.contentDocument.documentElement)
+                    it.frame.contentDocument.documentElement.dataset.theme = theme;
+            } catch (e) {}
+            try {
+                if (it.frame.contentWindow)
+                    it.frame.contentWindow.postMessage(
+                        { type: 'optionext:frame-theme', theme: theme }, '*');
+            } catch (e) {}
+        }
+        function broadcastTheme() {
+            var t = currentTheme();
+            items.forEach(function (it) { pushTheme(it, t); });
+        }
+
         /* ---------- iframe 载入 / 高度 ---------- */
         function ensureFrame(it) {
             if (!it.frame || it.loaded) return;
@@ -124,6 +164,10 @@
             it.frame.addEventListener('load', function () {
                 it.docReady = true;
                 clearTimers(it);
+
+                /* 0) 主题：子文档落地瞬间与外壳保持一致（子文档自带
+                   localStorage 防闪烁，此处纠正“载入后才切主题”的时差） */
+                pushTheme(it, currentTheme());
 
                 /* 1) 同源直量：load 即贴合，随后再补几轮等字体 / 图片落位 */
                 directMeasure(it);
@@ -186,11 +230,19 @@
 
         /* ---------- 地址栏 / 历史 ---------- */
         function syncUrl(pg) {
-            /* file://：pushState 整条被安全策略禁止，沿用站点既有的
-               软路径约定，让页眉等组件仍能“追踪”当前栏目 */
+            /* file://：pushState 整条被安全策略禁止，改把虚拟地址写进
+               路由 hash（#/projects/?PG=1）——地址栏可见、可复制、
+               前进/后退由 page-transit 的 hash 监听接管 */
             if (location.protocol === 'file:') {
-                var dir = location.pathname.replace(/\/(index|mobile)\.html$/i, '/');
-                window.__optionextSoftPath = dir + (pg ? '?PG=' + encodeURIComponent(pg) : '');
+                var soft = window.__optionextSoftPath || '';
+                var page = soft.split('?')[0] || '/';
+                if (page.charAt(0) !== '/') page = '/' + page;
+                if (page.charAt(page.length - 1) !== '/') page += '/';
+                var want = '#' + page + (pg ? '?PG=' + encodeURIComponent(pg) : '');
+                window.__optionextSoftPath = page + (pg ? '?PG=' + encodeURIComponent(pg) : '');
+                if (location.hash !== want) {
+                    try { location.hash = want; } catch (e) {}
+                }
                 try { window.dispatchEvent(new CustomEvent('optionext:locationchange')); }
                 catch (e) {}
                 return;
@@ -241,13 +293,17 @@
                 clearTimers(it);
             };
         });
+        function onThemeChange() { broadcastTheme(); }
+
         window.addEventListener('popstate', onPop);
         window.addEventListener('message', onMessage);
+        window.addEventListener('optionext:themechange', onThemeChange);
 
         function stop() {
             unbinders.forEach(function (u) { try { u(); } catch (e) {} });
             window.removeEventListener('popstate', onPop);
             window.removeEventListener('message', onMessage);
+            window.removeEventListener('optionext:themechange', onThemeChange);
             if (window.__optionextPageStop === stop)
                 window.__optionextPageStop = null;
         }
