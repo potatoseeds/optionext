@@ -472,18 +472,36 @@
     if (window.PointerEvent) {
         glass.addEventListener('pointerdown', function (e) {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
+            /* 这里【绝不】preventDefault，也【不能】按下即 setPointerCapture：
+               二者都会让随后的 click retarget 到玻璃本身，条内链接跳转、
+               日夜钮点击会全部失效。普通点按必须保持原生事件链路不变，
+               指针捕获延迟到确认拖拽后（见 window pointermove）。 */
             begin(e.clientX, e.clientY);
         });
+        /* 条内链接/图片的原生 HTML5 拖放一律掐灭（dragstart 冒泡可取消）：
+           拖放一旦启动，浏览器会抑制后续 pointermove/up——表现为快速拖远
+           后玻璃冻死、窗口外松手状态不复位 */
+        glass.addEventListener('dragstart', function (e) { e.preventDefault(); });
         glass.addEventListener('pointermove', function (e) {
             if (down || !hoverable) return;
             px = e.clientX; py = e.clientY;
             schedule();
         });
         window.addEventListener('pointermove', function (e) {
-            if (down) move(e.clientX, e.clientY);
+            if (!down) return;
+            /* 越过阈值、确认是拖拽的当帧才捕获指针：此刻 click 本就会被
+               armed 吞掉，捕获导致的 click retarget 无副作用；而普通点按
+               从不捕获，链接/按钮点击目标保持不变。捕获后鼠标即便冲出
+               窗口客户区，move/up 仍持续送达，松手必有一次 up 复位 */
+            if (!moved && Math.hypot(e.clientX - startX, e.clientY - startY) > DRAG_GATE) {
+                try { glass.setPointerCapture(e.pointerId); } catch (err) {}
+            }
+            move(e.clientX, e.clientY);
         });
         window.addEventListener('pointerup', release);
         window.addEventListener('pointercancel', release);
+        /* Alt+Tab / 窗口失焦等导致 up 丢失时的兜底复位（release 内部自带 down 短路） */
+        window.addEventListener('blur', release);
     } else {
         /* 旧移动浏览器（无 PointerEvent，如 iOS 12）：touch 兜底，跟踪第一根手指 */
         var tid = null;
@@ -508,6 +526,7 @@
         function endTouch() { if (tid === null) return; tid = null; release(); }
         window.addEventListener('touchend', endTouch);
         window.addEventListener('touchcancel', endTouch);
+        window.addEventListener('blur', endTouch);   /* 来电/切应用中断手势 */
     }
     glass.addEventListener('click', function (e) {
         if (armed) {

@@ -38,6 +38,11 @@
     try {
         ROOT_HREF = new URL('../', document.currentScript.src, document.baseURI).href;
     } catch (e) {}
+    /* 暴露给各页 data-page-script：软导航换页后只重跑内联启动脚本、
+       不加载目标页的外部 <script src>，页面专属组件需要据此自行补载。
+       file:// 软导航不改地址栏，相对路径会从“初始落地目录”解析而指错，
+       用本根地址可在任意入口目录下拼出正确的组件 URL */
+    window.__OPTIONEXT_ROOT__ = ROOT_HREF;
 
     /* ---------- 页面清单（tools/build_manifest.py 生成） ----------
        file:// 直开时 fetch/XHR 被浏览器安全策略禁止，软导航改从清单取

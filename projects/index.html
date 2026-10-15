@@ -395,8 +395,34 @@
 
     <script src="../components/site-header.js?v=20261015f"></script>
     <!-- 新闻板块抽屉：?PG=n 追踪 + iframe 载入（必须在软导航之前） -->
-    <script src="../components/news-drawer.js?v=20261014c"></script>
-    <script data-page-script>window.OptionextNewsDrawer()</script>
+    <script src="../components/news-drawer.js?v=20261015f"></script>
+    <script data-page-script>
+    /* 硬加载时上面的外链已定义函数；从其它栏目经软导航进入本页时，
+       page-transit 只重跑本段内联脚本、不会带上外部 <script src>，
+       因此函数缺失时按站点根动态补载（file:// 下 script 本地加载同样可用） */
+    (function () {
+        if (typeof window.OptionextNewsDrawer === 'function') {
+            window.OptionextNewsDrawer();
+            return;
+        }
+        var root = window.__OPTIONEXT_ROOT__ || '../';
+        var s = document.createElement('script');
+        s.src = root + 'components/news-drawer.js?v=20261015f';
+        s.onload = function () {
+            if (typeof window.OptionextNewsDrawer === 'function') window.OptionextNewsDrawer();
+        };
+        s.onerror = function () {
+            var box = document.querySelector('.registry');
+            if (box && !box.parentNode.querySelector('.news-fatal')) {
+                var d = document.createElement('div');
+                d.className = 'news-fatal';
+                d.textContent = '板块脚本加载失败：components/news-drawer.js 无法载入，请检查部署后强制刷新。';
+                box.parentNode.insertBefore(d, box);
+            }
+        };
+        document.head.appendChild(s);
+    })();
+    </script>
     <!-- 部署自检：脚本漏传 / 被拦截时给出显性红条，而不是“点了没反应” -->
     <script>
         window.addEventListener('load', function () {
