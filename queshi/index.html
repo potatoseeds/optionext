@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>确识 QUESHI · 对话台</title>
+<title>确实 QUESHI · 对话台</title>
 <link rel="icon" type="image/png" href="../image/LOGO%E7%AB%96%E7%89%88.png">
 <script>
     /* 主题防闪烁：早于一切渲染确定“明 / 暗”另一半 */
@@ -12,6 +12,11 @@
             var t = localStorage.getItem('optionext-theme') ||
                 (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             document.documentElement.dataset.theme = t;
+            /* Astra 防闪烁：首帧前就在 <html> 钉死星域变量。
+               否则带颜色过渡的控件（SEND / 档位文字）首帧从日夜色
+               起步，会停在错色不回归；此处与主题同机早决。 */
+            var qs = JSON.parse(localStorage.getItem('queshi-session-v2') || 'null');
+            if (qs && qs.level === 'l3') document.documentElement.dataset.qsAstra = '1';
         } catch (e) {}
     })();
 </script>
@@ -133,16 +138,6 @@ body.sh-dock-bottom .app {
 }
 .empty h1 .slash { color: var(--signal); }
 @keyframes blink { 50% { opacity: 0; } }
-.suggests { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 44px; }
-.suggest {
-    padding: 9px 16px;
-    border: 1px dashed var(--ink-25);
-    font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em;
-    color: var(--ink-70);
-    transition: border-color .25s, color .25s, transform .25s var(--ease-out), background .25s;
-}
-.suggest:hover { border-color: var(--signal); color: var(--signal); transform: translateY(-2px); background: var(--signal-soft); }
-.suggest .arr { color: var(--signal); margin-right: 7px; }
 
 /* 消息行：档案条目式，不做气泡 */
 .msg { margin-bottom: 30px; animation: msgIn .5s var(--ease-out) both; }
@@ -367,10 +362,17 @@ body.sh-dock-bottom .app {
 
 /* ============================================================
    Astra 星域模式
-   只接管【页面内容区】：.app 内变量强制深空，与日夜主题脱钩；
-   页眉 .sh-root 在 .app 之外，继续跟随页眉自己的日月切换。
+   页面整体强制深空、与日夜主题脱钩。变量覆盖挂在 <html> 上：
+   1) 首帧前 head 脚本即按会话档位写入 data-qs-astra，浏览器从未
+      经历日夜色→星域色的切换，带颜色过渡的控件不会停在错色；
+   2) color/background 在 body 处用 var() 解析后即以计算值向下
+      继承，挂 :root 可同时覆盖显式 var() 与继承取色两类元素。
+   页眉 .sh-root 只用自己的 --sh-* 令牌，不读这些变量，故不受
+   影响，继续跟随页眉自己的日月切换。
+   （body.qs-astra 由 JS 同步维护，只负责 canvas / composer 等
+    外观微调规则，见下方各条。）
    ============================================================ */
-body.qs-astra .app {
+:root[data-qs-astra="1"] {
     --paper: #05070f;
     --paper-deep: #080b16;
     --ink: #e8ecff;
@@ -391,6 +393,16 @@ body.qs-astra .input-row { background: rgba(10, 14, 28, .66); }
 body.qs-astra .level-pill { background: #e8ecff; }
 body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 
+/* 档位切换的两帧内，仅对参与变色的控件关闭过渡：自定义属性声明被
+   【移除】（离开 Astra）时，Chromium 不会用回退后的日夜值重启动画，
+   带 transition 的控件会停在星域旧色。拨杆滑块的 transform 滑动与
+   扫描线 animation 不在此列，动作感原样保留（类由 JS 双 rAF 摘除）。 */
+:root.qs-notrans .send-btn,
+:root.qs-notrans .x-btn,
+:root.qs-notrans .clear-btn,
+:root.qs-notrans .level-opt,
+:root.qs-notrans .input-row { transition: none !important; }
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
@@ -403,12 +415,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
             <!-- 空状态 -->
             <div class="empty" id="empty">
                 <div class="empty-inner">
-                    <h1>确识<span class="slash">/</span>QUESHI</h1>
-                    <div class="suggests" id="suggests">
-                        <button class="suggest" type="button" data-q="用三句话解释什么是期权"><span class="arr">&gt;&gt;</span>用三句话解释什么是期权</button>
-                        <button class="suggest" type="button" data-q="帮我拆解一个产品冷启动方案"><span class="arr">&gt;&gt;</span>拆解一个产品冷启动方案</button>
-                        <button class="suggest" type="button" data-q="这段代码为什么会有竞态问题？"><span class="arr">&gt;&gt;</span>分析一段代码的竞态问题</button>
-                    </div>
+                    <h1>确实<span class="slash">/</span>QUESHI</h1>
                 </div>
             </div>
             <div class="stream-inner" id="streamInner" hidden></div>
@@ -520,9 +527,22 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         trackEl.querySelectorAll('.level-opt').forEach(function (b) {
             b.setAttribute('aria-checked', b.dataset.level === level ? 'true' : 'false');
         });
-        /* Astra：页面内容区强制星域，与页眉的日夜切换互不干涉 */
+        /* Astra：页面整体强制星域，与页眉的日夜切换互不干涉。
+           html 属性承载变量覆盖（首帧前由 head 脚本预置，运行期此处同步），
+           body 类只供 canvas / composer 等外观微调规则使用。 */
         var astra = level === 'l3';
+        /* 属性值必须保持 "1"：toggleAttribute(...,true) 只会写入空串，
+           匹配不上 :root[data-qs-astra="1"]，故显式 set/remove */
+        var rootEl = document.documentElement;
+        /* 同一帧内摘除颜色过渡再改变量，两帧后恢复——避开 Chromium
+           “移除自定义属性声明时旧色不回归”的过渡缺陷 */
+        rootEl.classList.add('qs-notrans');
+        if (astra) rootEl.setAttribute('data-qs-astra', '1');
+        else rootEl.removeAttribute('data-qs-astra');
         document.body.classList.toggle('qs-astra', astra);
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { rootEl.classList.remove('qs-notrans'); });
+        });
         if (bgApi) bgApi.setMode(astra ? 'astra' : 'rain');
         if (animate) {
             trackEl.classList.remove('scan');
@@ -812,12 +832,6 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
     }
     inputEl.addEventListener('input', autoGrow);
-
-    /* 建议问题 */
-    $('#suggests').addEventListener('click', function (e) {
-        var b = e.target.closest('.suggest');
-        if (b) send(b.dataset.q);
-    });
 
     /* 快捷键（不展示在界面上；命名留存，软导航离开时摘除） */
     function onKeyDown(e) {
@@ -1129,6 +1143,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     window.__optionextPageStop = function () {
         if (bgApi) { bgApi.stop(); bgApi = null; }
         document.removeEventListener('keydown', onKeyDown);
+        document.documentElement.removeAttribute('data-qs-astra');
         document.body.classList.remove('qs-astra');
         if (abortCtrl) abortCtrl.abort();
     };
