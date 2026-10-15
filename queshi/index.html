@@ -461,9 +461,22 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 <script src="../components/page-manifest.js?v=20261015g"></script>
 <!-- 软导航：与全站一致，页眉不重载、只换 <main> -->
 <script src="../components/page-transit.js?v=20261015f"></script>
-<!-- Luna：MMSEG 分词 wasm + 词典 + 中性 3322 多阶链（base64 内联，file:// 可直开） -->
-<script src="plugins/luna/luna-assets.js"></script>
-<script src="plugins/luna/luna.js"></script>
+<!-- Luna：C(friso MMSEG) 编译的 wasm，全部在用户浏览器内运行，无后端。
+     http(s) 静态部署：只取 luna.js，wasm/词典/模型走独立文件（可缓存）；
+     file:// 直开：fetch 受限，改加载 base64 内联的 luna-assets.js。 -->
+<script>
+    (function () {
+        var files = location.protocol === 'file:'
+            ? ['plugins/luna/luna-assets.js', 'plugins/luna/luna.js']
+            : ['plugins/luna/luna.js'];
+        files.forEach(function (f) {
+            var s = document.createElement('script');
+            s.async = false;          /* 保序：assets 必须先于 luna.js */
+            s.src = f;
+            document.head.appendChild(s);
+        });
+    })();
+</script>
 <script data-page-script>
 /* ============================================================
    QUESHI 确识 · 对话台逻辑（单对话）
@@ -837,26 +850,17 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     document.addEventListener('keydown', onKeyDown);
 
     /* ============================================================
-       ★ 模型接口预留 ★
-       以后把模型拿过来时，只需要替换 callModel：
+       模型路由（纯静态部署，零后端，全部在用户浏览器内运行）
          async function* callModel(history, level, boost, signal)
-           - history: [{role:'user'|'assistant', content}]
-           - level:   'l1'(Luna) | 'l2'(Sol) | 'l3'(Astra)
-           - boost:   boolean，X 高阶模型是否开启（当前档位的更高规格实例）
-           - signal:  AbortSignal，用户点 STOP 时 abort
-           - yield {type:'reasoning', text}  （可选，Astra 推理过程）
-           - yield {type:'delta', text}      （流式正文分片）
-       示例（SSE 流式接口）：
-         var resp = await fetch('/api/chat', {method:'POST',
-             body: JSON.stringify({messages: history, level: level, boost: boost}),
-             signal: signal});
-         var reader = resp.body.getReader();
-         // 解析 SSE，逐块 yield {type:'delta', text: chunk}
+           - level 'l1' Luna：C(friso)→wasm 分词 + JS MKB2 多阶链，已接入
+           - level 'l2' Sol / 'l3' Astra：未接入，直接回复“不可用”
+           - boost：X 高阶模型；Luna 档为 emo8 八情感链（接缝已留，未装入）
        ============================================================ */
     /* ============================================================
        Luna（l1）：本地多阶混合马尔科夫链
        - MMSEG 分词在 wasm 内完成，生成与原生 markov_gen 位级一致
-       - 引擎单例懒装载（首次切到 Luna 发问时装，约百毫秒级）
+       - 引擎单例懒装载（首次切到 Luna 发问时装）
+       - http(s)：fetch 独立 wasm/词典/模型文件；file://：base64 内联兜底
        - X 接缝：emo8 为 8 情感链大模型，等模型插件就位后，
          用 Luna.createEngine(wasm, dict, emo8Bytes) 装入并按 chain 选维，
          在此之前 X 开启时回落中性链并明示
@@ -910,76 +914,18 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
             if (history[i].role === 'user') { lastUser = history[i].content; break; }
         }
 
-        /* Luna 档：接本地真实生成 */
+        /* Luna 档：本地真实生成（C wasm 分词 + 多阶链，全程用户端运行） */
         if (level === 'l1') {
             yield* callLuna(lastUser, boost, signal);
             return;
         }
 
-        var q = lastUser.slice(0, 24);
-
-        var plans = {
-            l1: { delay: 280, per: 14, thinking: null,
-                  body: '「' + q + '」——先划清边界，答案自然浮出来。' },
-
-            l2: { delay: 460, per: 20, thinking: null,
-                  body: '「' + q + '」拆三步：\n' +
-                        '1. **现状**——分清哪些条件给定、哪些可变；\n' +
-                        '2. **路径**——列两三条路，标出各自代价；\n' +
-                        '3. **落点**——按手头资源选一条，先动第一步。' },
-
-            l3: { delay: 640, per: 22,
-                  thinking:
-                    '> 意图：要可迁移的方法，不是单条结论。\n' +
-                    '> 歧义：缺场景约束 → 给带条件的分层答案。\n' +
-                    '> 组织：现状 / 路径 / 落点，落到一个第一步。',
-                  body: '「' + q + '」深研。\n\n' +
-                        '底层是三个问题叠在一起：**信息不全、选项过多、反馈太慢**。\n\n' +
-                        '- **最小验证**：用最低成本跑一次实验，让真实反馈替代脑补；\n' +
-                        '- **类比迁移**：找结构相似的已知领域，把解法映射过来；\n' +
-                        '- **逆向排除**：不列“该做什么”，改列“怎样算必败”。\n\n' +
-                        '> 第一步：写成一句可证伪的假设，配一个 48 小时内出结果的小测试。' }
+        /* Sol / Astra：模型尚未接入，直接告知不可用，不做假回复 */
+        var unavailable = {
+            l2: '〔Sol 档暂不可用〕\n\n该模型尚未接入。当前只有 Luna 档可用——分词与生成全部在你本地浏览器内完成，请把档位拨到 **Luna**。',
+            l3: '〔Astra 档暂不可用〕\n\n星域深研模型尚未接入。当前只有 Luna 档可用——分词与生成全部在你本地浏览器内完成，请把档位拨到 **Luna**。'
         };
-
-        var p = plans[level];
-
-        /* X 高阶模型：更长首响、更深展开（接入后替换为真实高规格实例） */
-        if (boost) {
-            p = {
-                delay: p.delay + 260, per: 18,
-                thinking: p.thinking ? p.thinking + '\n> X：启用高阶实例，加大推演宽度与反例搜索。'
-                                     : '> X：高阶实例已介入，补充反例与边界条件。',
-                body: '[X] ' + p.body +
-                      (level === 'l3'
-                        ? '\n\n**X 增补**：为结论配两个反例压力测试——若假设不成立，最先失效的会是哪一环？失效信号长什么样？提前写下来，测试时对照核验。'
-                        : '\n\n**[X]** 若要更稳：补一个反例和一个边界条件，再决定动不动手。')
-            };
-        }
-
-        await sleep(p.delay);
-        if (signal.aborted) return;
-
-        /* Astra：推理纪要逐片吐出 */
-        if (p.thinking) {
-            var rt = 0;
-            for (var k = 1; k <= p.thinking.length; k++) {
-                if (signal.aborted) return;
-                if (k % 2 === 0) {
-                    yield { type: 'reasoning', text: p.thinking.slice(rt, k) };
-                    rt = k;
-                    await sleep(9);
-                }
-            }
-            if (rt < p.thinking.length) yield { type: 'reasoning', text: p.thinking.slice(rt) };
-            await sleep(160);
-        }
-
-        /* 正文：逐字符流式 */
-        for (var i = 0; i < p.body.length; i++) {
-            if (signal.aborted) return;
-            yield { type: 'delta', text: p.body[i] };
-            if (i % 3 === 0) await sleep(p.per);
-        }
+        yield { type: 'delta', text: unavailable[level] || '〔该档位暂不可用〕' };
     }
 
     function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }

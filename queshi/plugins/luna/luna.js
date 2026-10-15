@@ -300,15 +300,67 @@
     return new Engine(ex, model);
   }
 
-  async function loadDefault(opt) {
+  /* 本脚本所在目录（普通 <script> 执行期 currentScript 有效） */
+  var PLUGIN_BASE = (function () {
+    try {
+      if (typeof document !== 'undefined' && document.currentScript &&
+          document.currentScript.src) {
+        return document.currentScript.src.replace(/[^/]*$/, '');
+      }
+    } catch (e) {}
+    return 'plugins/luna/';
+  })();
+
+  /* 静态部署下的独立资产路径（模型在 queshi/models/luna/） */
+  var ASSET_FILES = {
+    wasm: 'luna.wasm',
+    dict: 'assets/dict.pack',
+    model: '../../models/luna/markov_neutral3322.bin'
+  };
+
+  async function fetchBytes(url) {
+    var resp = await fetch(url, { cache: 'force-cache' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + url);
+    return new Uint8Array(await resp.arrayBuffer());
+  }
+
+  async function fromEmbedded(opt) {
     if (typeof global.__LUNA_ASSETS__ === 'undefined') {
-      throw new Error('Luna: __LUNA_ASSETS__ missing; include luna-assets.js first');
+      throw new Error('Luna: assets unavailable (no luna-assets.js, fetch failed)');
     }
     var A = global.__LUNA_ASSETS__;
-    var wasmBytes = A.wasm instanceof Uint8Array ? A.wasm : b64ToBytes(A.wasm);
-    var dictBytes = A.dict instanceof Uint8Array ? A.dict : b64ToBytes(A.dict);
-    var modelBytes = A.m3322 instanceof Uint8Array ? A.m3322 : b64ToBytes(A.m3322);
-    return createEngine(wasmBytes, dictBytes, modelBytes, opt);
+    return createEngine(
+      A.wasm instanceof Uint8Array ? A.wasm : b64ToBytes(A.wasm),
+      A.dict instanceof Uint8Array ? A.dict : b64ToBytes(A.dict),
+      A.m3322 instanceof Uint8Array ? A.m3322 : b64ToBytes(A.m3322), opt);
+  }
+
+  /**
+   * 装载默认中性引擎：
+   *  - http(s) 静态站点：fetch 独立 wasm/词典/模型（可被浏览器/CDN 缓存）；
+   *    任一文件缺失则回退内联 base64（luna-assets.js）
+   *  - file:// 直开：fetch 受限，直接用内联 base64
+   */
+  async function loadDefault(opt) {
+    opt = opt || {};
+    var isHttp = typeof location !== 'undefined' &&
+                 (location.protocol === 'http:' || location.protocol === 'https:');
+    if (isHttp && !opt.embedded) {
+      try {
+        var base = opt.baseUrl || PLUGIN_BASE;
+        var parts = await Promise.all([
+          fetchBytes(new URL(ASSET_FILES.wasm, base).href),
+          fetchBytes(new URL(ASSET_FILES.dict, base).href),
+          fetchBytes(new URL(ASSET_FILES.model, base).href)
+        ]);
+        return await createEngine(parts[0], parts[1], parts[2], opt);
+      } catch (e) {
+        if (typeof opt.log === 'function') {
+          opt.log('独立资产加载失败，回退内联包：' + (e && e.message));
+        }
+      }
+    }
+    return fromEmbedded(opt);
   }
 
   var Luna = {
