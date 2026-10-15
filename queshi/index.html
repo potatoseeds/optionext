@@ -230,6 +230,10 @@ body.sh-dock-bottom .app {
     font-family: var(--font-mono); font-size: 13px; color: var(--signal);
     letter-spacing: .1em;
 }
+.wait-status {
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-3, #888);
+    letter-spacing: .02em; white-space: nowrap;
+}
 
 /* ============================================================
    输入区 + 档位拨杆 + X
@@ -446,7 +450,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
      file:// 直开：fetch 受限，改加载 base64 内联的 luna-assets.js。 -->
 <script>
     (function () {
-        var v = '20261015a';
+        var v = '20261015b';
         var files = location.protocol === 'file:'
             ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
             : ['plugins/luna/luna.js?v=' + v];
@@ -721,13 +725,22 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
                 var item;
                 while (!(item = await gen.next()).done) {
                     var ev = item.value;
-                    if (!gotFirst) {
+                    if (!gotFirst && ev.type !== 'status') {
                         gotFirst = true;
                         clearInterval(spinTimer);
                         waitRow.remove();
                         cursor.style.display = '';
                     }
-                    if (ev.type === 'reasoning') {
+                    if (ev.type === 'status') {
+                        var st = waitRow.querySelector('.wait-status');
+                        if (!st) {
+                            st = document.createElement('span');
+                            st.className = 'wait-status';
+                            waitRow.appendChild(st);
+                        }
+                        st.textContent = ' ' + ev.text;
+                        if (nearBottom()) streamEl.scrollTop = streamEl.scrollHeight;
+                    } else if (ev.type === 'reasoning') {
                         aiMsg.reasoning += ev.text;
                         reasoningWrap.style.display = '';
                         reasoningBox.textContent = aiMsg.reasoning;
@@ -837,11 +850,12 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        ============================================================ */
     var lunaEnginePromise = null;
     var lunaCallCount = 0;
-    function ensureLuna() {
+    function ensureLuna(onStatus) {
         if (!window.Luna) return Promise.reject(new Error('Luna 脚本未载入'));
         if (!lunaEnginePromise) {
             lunaEnginePromise = window.Luna.loadDefault({
-                log: function (m) { try { console.warn('[Luna] ' + m); } catch (e) {} }
+                log: function (m) { try { console.warn('[Luna] ' + m); } catch (e) {} },
+                onProgress: onStatus
             }).catch(function (e) {
                 lunaEnginePromise = null;
                 throw e;
@@ -850,10 +864,39 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         return lunaEnginePromise;
     }
 
+    function lunaStatusLabel(s) {
+        if (s.phase === 'fallback') return '网络不稳，改走备用通道（约 8MB），请稍候…';
+        if (s.phase === 'init') return '词典载入中…';
+        var pct = Math.round((s.progress || 0) * 100);
+        return '首次装载 Luna（约 1.8MB，只此一次）… ' + pct + '%';
+    }
+
     async function* callLuna(text, boost, signal) {
-        var engine;
-        try { engine = await ensureLuna(); }
-        catch (e) { throw new Error('Luna 引擎装载失败：' + (e && e.message ? e.message : e)); }
+        /* 装载阶段：引擎回调的进度实时透传给等待行；STOP 可中止等待 */
+        var q = [];
+        var waiter = null;
+        function push(s) { if (waiter) { var w = waiter; waiter = null; w(s); } else q.push(s); }
+        var p = ensureLuna(push);
+
+        var engine = null;
+        while (!engine) {
+            var statusP = q.length ? Promise.resolve(q.shift())
+                                   : new Promise(function (r) { waiter = r; });
+            var win = await Promise.race([
+                statusP.then(function (s) { return { status: s }; }),
+                p.then(function (e) { return { engine: e }; },
+                       function (e) { return { error: e }; }),
+                new Promise(function (resolve) {
+                    if (signal.aborted) resolve({ aborted: true });
+                    else signal.addEventListener('abort', function () { resolve({ aborted: true }); });
+                })
+            ]);
+            if (win.aborted) return;
+            if (win.error) throw win.error;
+            if (win.engine) { engine = win.engine; break; }
+            yield { type: 'status', text: lunaStatusLabel(win.status) };
+        }
+        while (q.length) yield { type: 'status', text: lunaStatusLabel(q.shift()) };
         if (signal.aborted) return;
 
         if (boost) {

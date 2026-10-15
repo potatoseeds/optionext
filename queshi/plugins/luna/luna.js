@@ -300,8 +300,9 @@
     return new Engine(ex, model);
   }
 
-  /* 版本号：随构建更新，挂在所有资产 URL 上，防止 CDN 边缘缓存新旧错配 */
-  var ASSET_VERSION = '20261015a';
+  /* 版本号：随构建更新，挂在所有资产 URL 上，防止 CDN 边缘缓存新旧错配。
+     资产变动时与 index.html 里的 v 一起递增 */
+  var ASSET_VERSION = '20261015b';
 
   /* 本脚本所在目录（普通 <script> 执行期 currentScript 有效；
      去掉可能存在的 ?v= 查询再取目录） */
@@ -315,12 +316,30 @@
     return 'plugins/luna/';
   })();
 
-  /* 静态部署下的独立资产路径（模型在 queshi/models/luna/） */
-  var ASSET_FILES = {
-    wasm: 'luna.wasm',
-    dict: 'assets/dict.pack',
-    model: '../../models/luna/markov_neutral3322.bin'
-  };
+  /* 静态部署下的独立资产路径（模型在 queshi/models/luna/）。
+     gz 为预压文件（gzip -9），浏览器支持 DecompressionStream 时优先，
+     体积约为原始的 30%，弱网下是生死线 */
+  var ASSET_SPECS = [
+    { key: 'wasm',  raw: 'luna.wasm',                              gz: null,
+      sizeRaw: 26791,  sizeGz: 26791,
+      magic: [0x00, 0x61, 0x73, 0x6d] },
+    { key: 'dict',  raw: 'assets/dict.pack',                       gz: 'assets/dict.pack.gz',
+      sizeRaw: 2661604, sizeGz: 775856,
+      magic: [0x4c, 0x44, 0x49, 0x43] },
+    { key: 'model', raw: '../../models/luna/markov_neutral3322.bin', gz: '../../models/luna/markov_neutral3322.bin.gz',
+      sizeRaw: 3443704, sizeGz: 1076494,
+      magic: [0x4d, 0x4b, 0x42, 0x32] }
+  ];
+
+  var FETCH_TIMEOUT = 150000;   /* 单文件总超时（弱网阈值约 7KB/s） */
+  var FETCH_RETRIES = 1;        /* 单候选失败重试次数 */
+
+  function hasCache() {
+    return typeof caches !== 'undefined' && caches && typeof caches.open === 'function';
+  }
+  function hasGunzip() {
+    return typeof DecompressionStream !== 'undefined';
+  }
 
   function assetUrl(rel, base) {
     var u = new URL(rel, base);
@@ -328,26 +347,78 @@
     return u.href;
   }
 
-  /* 大文件（词典 2.6MB / 模型 3.4MB，经 CDN 回源可能较慢）：
-     60 秒超时 + 失败重试 1 次 */
-  async function fetchBytes(url, attempt) {
+  function magicOk(bytes, magic) {
+    if (!bytes || bytes.length < magic.length) return false;
+    for (var i = 0; i < magic.length; i++) if (bytes[i] !== magic[i]) return false;
+    return true;
+  }
+
+  async function gunzip(bytes) {
+    var ds = new DecompressionStream('gzip');
+    var stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  /* Cache Storage：成功拿到的资产（解压后原始字节）按版本缓存，
+     二次访问零下载；内联兜底成功后也回填，弱网用户第二次即离线可用 */
+  async function cacheGet(keyUrl) {
+    if (!hasCache()) return null;
+    try {
+      var c = await caches.open('luna-assets-' + ASSET_VERSION);
+      var r = await c.match(keyUrl);
+      if (r) return new Uint8Array(await r.arrayBuffer());
+    } catch (e) {}
+    return null;
+  }
+  async function cachePut(keyUrl, bytes) {
+    if (!hasCache()) return;
+    try {
+      var c = await caches.open('luna-assets-' + ASSET_VERSION);
+      await c.put(keyUrl, new Response(bytes, {
+        headers: { 'Content-Type': 'application/octet-stream' }
+      }));
+    } catch (e) {}
+  }
+
+  /* 流式下载：拿得到进度；单文件 150 秒超时 + 重试 1 次 */
+  async function fetchStream(url, onProgress, attempt) {
     attempt = attempt || 0;
     var ctrl = null, timer = 0;
     try {
       if (typeof AbortController !== 'undefined') {
         ctrl = new AbortController();
-        timer = setTimeout(function () { ctrl.abort(); }, 60000);
+        timer = setTimeout(function () { ctrl.abort(); }, FETCH_TIMEOUT);
       }
       var resp = await fetch(url, {
         cache: 'force-cache',
         signal: ctrl ? ctrl.signal : undefined
       });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      var total = parseInt(resp.headers.get('content-length') || '0', 10) || 0;
+      if (resp.body && resp.body.getReader) {
+        var reader = resp.body.getReader();
+        var chunks = [];
+        var loaded = 0;
+        for (;;) {
+          var step = await reader.read();
+          if (step.done) break;
+          chunks.push(step.value);
+          loaded += step.value.length;
+          if (onProgress) onProgress(loaded, total);
+        }
+        var out = new Uint8Array(loaded);
+        var off = 0;
+        for (var i = 0; i < chunks.length; i++) {
+          out.set(chunks[i], off);
+          off += chunks[i].length;
+        }
+        return out;
+      }
       return new Uint8Array(await resp.arrayBuffer());
     } catch (e) {
-      if (attempt < 1) {
-        await new Promise(function (r) { setTimeout(r, 400); });
-        return fetchBytes(url, attempt + 1);
+      if (attempt < FETCH_RETRIES) {
+        await new Promise(function (r) { setTimeout(r, 500); });
+        return fetchStream(url, onProgress, attempt + 1);
       }
       throw e;
     } finally {
@@ -355,62 +426,168 @@
     }
   }
 
-  /* 动态注入 luna-assets.js（仅在独立文件通道失败时才加载，省 8MB 常态流量） */
+  /* 单资产：缓存 → 预压 gz → 原始文件；文件头校验防劫持/错误页 */
+  async function getAsset(spec, base, progress, opt) {
+    var keyUrl = assetUrl(spec.raw, base);
+    var cached = await cacheGet(keyUrl);
+    if (magicOk(cached, spec.magic)) {
+      progress.slots[spec.key] = { ratio: 1 };
+      if (opt.onProgress) opt.onProgress({ phase: 'download', progress: progress.pct() });
+      return cached;
+    }
+    var candidates = [];
+    if (spec.gz && hasGunzip()) candidates.push({ url: assetUrl(spec.gz, base), gz: true });
+    candidates.push({ url: keyUrl, gz: false });
+
+    var lastErr = null;
+    for (var ci = 0; ci < candidates.length; ci++) {
+      var cand = candidates[ci];
+      try {
+        var expected = cand.gz ? spec.sizeGz : spec.sizeRaw;
+        var bytes = await fetchStream(cand.url, function (loaded) {
+          progress.slots[spec.key] = { ratio: Math.min(1, loaded / expected) };
+          if (opt.onProgress) opt.onProgress({ phase: 'download', progress: progress.pct() });
+        });
+        if (cand.gz) bytes = await gunzip(bytes);
+        if (!magicOk(bytes, spec.magic)) throw new Error('bad magic (文件被篡改或返回错误页)');
+        await cachePut(keyUrl, bytes);
+        progress.slots[spec.key] = { ratio: 1 };
+        if (opt.onProgress) opt.onProgress({ phase: 'download', progress: progress.pct() });
+        return bytes;
+      } catch (e) {
+        lastErr = e;
+        if (typeof opt.log === 'function') {
+          opt.log('资产 ' + spec.key + (cand.gz ? ' (.gz)' : '') + ' 失败：' + (e && e.message));
+        }
+      }
+    }
+    throw lastErr || new Error('asset ' + spec.key + ' unavailable');
+  }
+
+  /* 动态注入 luna-assets.js（仅独立通道失败时加载，省常态流量）。
+     弱网下 8MB 也可能断：180 秒看门狗 + 最多 2 次尝试 */
   var embeddedPromise = null;
-  function loadEmbeddedScript() {
+  function loadEmbeddedScript(opt) {
     if (typeof global.__LUNA_ASSETS__ !== 'undefined') return Promise.resolve();
     if (embeddedPromise) return embeddedPromise;
-    embeddedPromise = new Promise(function (resolve, reject) {
-      if (typeof document === 'undefined') { reject(new Error('no document')); return; }
-      var s = document.createElement('script');
-      s.src = assetUrl('luna-assets.js', PLUGIN_BASE);
-      s.onload = function () {
-        if (typeof global.__LUNA_ASSETS__ !== 'undefined') resolve();
-        else reject(new Error('luna-assets.js loaded but no __LUNA_ASSETS__'));
-      };
-      s.onerror = function () { reject(new Error('luna-assets.js load error')); };
-      document.head.appendChild(s);
-    }).catch(function (e) { embeddedPromise = null; throw e; });
+    embeddedPromise = (async function () {
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          await new Promise(function (resolve, reject) {
+            if (typeof document === 'undefined') { reject(new Error('no document')); return; }
+            var s = document.createElement('script');
+            var done = false;
+            var timer = setTimeout(function () {
+              if (done) return;
+              done = true;
+              s.remove();
+              reject(new Error('下载超时（180s）'));
+            }, 180000);
+            s.onload = function () {
+              if (done) return;
+              done = true;
+              clearTimeout(timer);
+              if (typeof global.__LUNA_ASSETS__ !== 'undefined') resolve();
+              else reject(new Error('已加载但无资产数据'));
+            };
+            s.onerror = function () {
+              if (done) return;
+              done = true;
+              clearTimeout(timer);
+              s.remove();
+              reject(new Error('下载中断'));
+            };
+            s.src = assetUrl('luna-assets.js', PLUGIN_BASE);
+            document.head.appendChild(s);
+          });
+          return;
+        } catch (e) {
+          if (typeof opt.log === 'function') {
+            opt.log('内联包第 ' + (attempt + 1) + ' 次尝试失败：' + (e && e.message));
+          }
+          await new Promise(function (r) { setTimeout(r, 600); });
+        }
+      }
+      throw new Error('内联包多次下载失败');
+    })().catch(function (e) { embeddedPromise = null; throw e; });
     return embeddedPromise;
   }
 
-  async function fromEmbedded(opt) {
-    if (typeof global.__LUNA_ASSETS__ === 'undefined') {
-      await loadEmbeddedScript();
-    }
+  function decodeAsset(v) {
+    return v instanceof Uint8Array ? v : b64ToBytes(v);
+  }
+
+  /* 内联包成功后回填缓存：下次访问（即使独立文件被墙/断网）也零下载 */
+  function backfillCache(decoded, base) {
+    if (!hasCache()) return;
+    ASSET_SPECS.forEach(function (spec) {
+      var bytes = decoded[spec.key];
+      if (magicOk(bytes, spec.magic)) cachePut(assetUrl(spec.raw, base), bytes);
+    });
+  }
+
+  async function fromEmbedded(opt, base) {
+    await loadEmbeddedScript(opt);
     var A = global.__LUNA_ASSETS__;
-    return createEngine(
-      A.wasm instanceof Uint8Array ? A.wasm : b64ToBytes(A.wasm),
-      A.dict instanceof Uint8Array ? A.dict : b64ToBytes(A.dict),
-      A.m3322 instanceof Uint8Array ? A.m3322 : b64ToBytes(A.m3322), opt);
+    var decoded = {
+      wasm: decodeAsset(A.wasm),
+      dict: decodeAsset(A.dict),
+      model: decodeAsset(A.m3322)
+    };
+    var engine = await createEngine(decoded.wasm, decoded.dict, decoded.model, opt);
+    backfillCache(decoded, base);
+    return engine;
+  }
+
+  function progressTracker() {
+    return {
+      slots: {},
+      pct: function () {
+        var keys = ASSET_SPECS.map(function (s) { return s.key; });
+        var sum = 0;
+        for (var i = 0; i < keys.length; i++) {
+          sum += this.slots[keys[i]] ? this.slots[keys[i]].ratio : 0;
+        }
+        return sum / keys.length;
+      }
+    };
   }
 
   /**
    * 装载默认中性引擎：
-   *  - http(s) 静态站点：fetch 独立 wasm/词典/模型（可被浏览器/CDN 缓存）；
-   *    任一文件失败/超时 → 动态加载 luna-assets.js 走 base64 内联兜底
-   *  - file:// 直开：fetch 受限，页面已直接内联 luna-assets.js
+   *  - http(s)：缓存 → 预压 .gz（约 1.8MB）→ 原始文件 → 8MB 内联包兜底
+   *  - file://：页面已直接内联 luna-assets.js
+   * 成功后所有资产进入 Cache Storage，二次访问零下载
+   *  opt.onProgress({phase:'download'|'fallback'|'init', progress:0..1})
    */
   async function loadDefault(opt) {
     opt = opt || {};
+    var base = opt.baseUrl || PLUGIN_BASE;
     var isHttp = typeof location !== 'undefined' &&
                  (location.protocol === 'http:' || location.protocol === 'https:');
     if (isHttp && !opt.embedded) {
       try {
-        var base = opt.baseUrl || PLUGIN_BASE;
-        var parts = await Promise.all([
-          fetchBytes(assetUrl(ASSET_FILES.wasm, base)),
-          fetchBytes(assetUrl(ASSET_FILES.dict, base)),
-          fetchBytes(assetUrl(ASSET_FILES.model, base))
-        ]);
+        var progress = progressTracker();
+        if (opt.onProgress) opt.onProgress({ phase: 'download', progress: 0 });
+        var parts = await Promise.all(ASSET_SPECS.map(function (spec) {
+          return getAsset(spec, base, progress, opt);
+        }));
+        if (opt.onProgress) opt.onProgress({ phase: 'init', progress: 1 });
         return await createEngine(parts[0], parts[1], parts[2], opt);
       } catch (e) {
         if (typeof opt.log === 'function') {
           opt.log('独立资产加载失败，回退内联包：' + (e && e.message));
         }
+        if (opt.onProgress) opt.onProgress({ phase: 'fallback', progress: 0 });
+        try {
+          return await fromEmbedded(opt, base);
+        } catch (e2) {
+          throw new Error('模型文件下载失败（网络不稳定或被中断）。请换更稳定的网络后再点一次发送——已下载的部分会被缓存，第二次通常成功。详情：'
+                          + (e2 && e2.message ? e2.message : e2));
+        }
       }
     }
-    return fromEmbedded(opt);
+    return fromEmbedded(opt, base);
   }
 
   var Luna = {

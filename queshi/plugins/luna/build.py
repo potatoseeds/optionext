@@ -146,8 +146,28 @@ def build_assets_js():
           % (os.path.getsize(JS_OUT) / 1024.0))
 
 
+def build_gzip():
+    """静态部署用预压文件（弱网友好：约省 70% 流量）。
+       luna.js 在支持 DecompressionStream 的浏览器优先取 .gz，否则回落原文件。"""
+    import gzip
+    targets = [
+        (PACK_OUT, PACK_OUT + '.gz'),
+        (MODEL_BIN, MODEL_BIN + '.gz'),
+    ]
+    for src, dst in targets:
+        with open(src, 'rb') as f:
+            raw = f.read()
+        with gzip.GzipFile(filename='', mode='wb', compresslevel=9,
+                           mtime=0, fileobj=open(dst, 'wb')) as gz:
+            gz.write(raw)
+        print('  gzip %s: %.1f KiB -> %.1f KiB'
+              % (os.path.basename(src), len(raw) / 1024.0,
+                 os.path.getsize(dst) / 1024.0))
+
+
 if __name__ == '__main__':
     build_wasm()
     build_pack()
     build_assets_js()
+    build_gzip()
     print('done.')
