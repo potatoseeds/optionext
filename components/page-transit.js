@@ -68,16 +68,25 @@
     var FLAVOR = document.documentElement.getAttribute('data-flavor') === 'mob'
         ? 'mob' : 'desk';
 
+    /* 路径规范化：识别真实文件的多种落地形式，统一成“目录形式”。
+       托管可能把 .html 扩展名去掉（clean URL）：
+         /mobile.html、/mobile        -> /
+         /projects/mobile.html、/projects/mobile -> /projects/
+         /index.html、/index          -> /
+       canonPath 前的 / 保证不误伤 /mobileism 这类路径（必须以
+       /mobile 或 /mobile.html 结尾）。 */
     function canonPath(p) {
-        return p.replace(/\/(index|mobile)\.html$/i, '/');
+        return p.replace(/\/(?:index|mobile)(?:\.html)?$/i, '/');
     }
 
     /* 当前文档对应的真实文件地址（写入初始历史条目的 state.f） */
     function currentRealHref() {
         var p = location.pathname;
-        if (/\/(index|mobile)\.html$/i.test(p)) return location.href;
-        if (p.charAt(p.length - 1) === '/') {
-            return p + (FLAVOR === 'mob' ? 'mobile.html' : 'index.html') +
+        if (/\/(?:index|mobile)\.html$/i.test(p)) return location.href;
+        var bare = /\/(?:index|mobile)$/i.test(p);   // clean URL：/mobile、/index
+        if (p.charAt(p.length - 1) === '/' || bare) {
+            var dir = bare ? p.slice(0, p.lastIndexOf('/') + 1) : p;
+            return dir + (FLAVOR === 'mob' ? 'mobile.html' : 'index.html') +
                 location.search + location.hash;
         }
         return location.href;   // 普通详情页：原样

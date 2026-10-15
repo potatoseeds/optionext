@@ -122,24 +122,26 @@
     var navMob  = root.querySelector('.sh-mobile');
     var toggle = root.querySelector('.sh-toggle');
     var logoImg = root.querySelector('.sh-brand img');
-    /* 当前路径：file:// 软导航时地址栏无法变化，取 page-transit 维护的软路径 */
+    /* 当前路径：file:// 软导航时地址栏无法变化，取 page-transit 维护的软路径。
+       规范化兼容 clean URL：/index.html 与裸 /index 都视作目录根 */
+    function normIdx(p) { return p.replace(/\/index(?:\.html)?$/i, '/'); }
     function currentPath() {
         return window.__optionextSoftPath || location.pathname;
     }
-    var here = currentPath().replace(/index\.html$/, '');
+    var here = normIdx(currentPath());
     var navRefs = [];
 
     function isActive(item) {
         if (item.href === '#' || item.href.charAt(0) !== '/') return false;
         var target = new URL(resolve(item.href));
-        var tp = target.pathname.replace(/index\.html$/, '');
+        var tp = normIdx(target.pathname);
         // 非首页栏目允许前缀匹配（栏目目录下的详情页仍高亮该栏目）
         return tp === here || (!item.root && tp.length > 1 && here.indexOf(tp) === 0);
     }
 
     /* 软导航换页后只重刷红点（page-transit.js 派发事件），页眉节点不重建 */
     function refreshActive() {
-        here = currentPath().replace(/index\.html$/, '');
+        here = normIdx(currentPath());
         navRefs.forEach(function (n) {
             n.d.classList.toggle('sh-active', isActive(n.item));
             n.m.classList.toggle('sh-active', isActive(n.item));

@@ -107,9 +107,11 @@
     var card = root.querySelector('.mt-card');
     var themeBtn = root.querySelector('.mt-theme');
 
-    /* index.html / mobile.html 都归一化为目录，保证首页项高亮。
+    /* 归一化为目录，保证首页项高亮。同时兼容两种落地地址：
+       /mobile.html 与 clean URL /mobile（托管去扩展名）、
+       /projects/mobile.html 与 /projects/mobile。
        file:// 软导航时地址栏无法变化，取 page-transit 维护的软路径 */
-    function norm(p) { return p.replace(/(index|mobile)\.html$/i, ''); }
+    function norm(p) { return p.replace(/\/(?:index|mobile)(?:\.html)?$/i, '/'); }
     function currentPath() { return window.__optionextSoftPath || location.pathname; }
     var here = norm(currentPath());
 
