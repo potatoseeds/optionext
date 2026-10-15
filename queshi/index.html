@@ -78,7 +78,8 @@ a { color: inherit; text-decoration: none; }
    ============================================================ */
 :root {
     --sh-safe-top: 92px;
-    --sh-safe-bottom: 120px;
+    /* 锚底避让：玻璃条约 56px + 距屏底 14px + 少量呼吸距，输入区尽量下沉 */
+    --sh-safe-bottom: 84px;
 }
 /* .app 即 <main>：软导航只搬运 <main>，避让与布局都挂在它身上。
    transition 同时包含 page-transit 的淡出淡入属性 */
@@ -286,9 +287,9 @@ body.sh-dock-bottom .app {
 .level-opt[aria-checked="true"] { color: var(--paper); }
 .level-opt:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
 
-/* X：紧贴三档右侧，当前档位高阶模型开关 */
-.x-wrap { position: relative; flex-shrink: 0; }
+/* X：紧贴三档右侧，点击直接切换当前档位的高阶模型 */
 .x-btn {
+    flex-shrink: 0;
     width: 40px; height: 39px;
     border: 1px solid var(--ink-25);
     font-family: var(--font-mono); font-size: 15px; font-weight: 600;
@@ -303,41 +304,30 @@ body.sh-dock-bottom .app {
     box-shadow: 0 0 0 1px var(--signal), 0 0 18px var(--signal-soft), 0 0 26px rgba(223,59,42,.25);
 }
 
-.x-pop {
-    position: absolute; bottom: calc(100% + 10px); left: 0;
-    width: 248px;
-    border: 1px solid var(--ink);
-    background: var(--paper);
-    padding: 12px;
-    z-index: 30;
-    animation: popIn .28s var(--ease-out);
-    transform-origin: bottom left;
+/* 模型选择按钮：接缝预留，暂留空（不接线） */
+.pick-btn {
+    flex-shrink: 0;
+    width: 96px; height: 39px;
+    border: 1px dashed var(--ink-25);
+    transition: border-color .25s;
 }
-@keyframes popIn {
-    from { opacity: 0; transform: translateY(8px) scale(.98); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+.pick-btn:disabled { cursor: not-allowed; }
+
+/* 清空对话：贴右收口 */
+.clear-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    height: 39px;
+    padding: 0 16px;
+    border: 1px solid var(--ink-25);
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em;
+    color: var(--ink-70);
+    transition: color .25s, border-color .25s, background .25s;
 }
-.x-pop[hidden] { display: none; }
-.x-pop-title {
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: .2em;
-    color: var(--ink-45); margin-bottom: 8px;
-}
-.x-opt {
-    display: flex; align-items: center; justify-content: space-between;
-    width: 100%; text-align: left;
-    padding: 9px 10px;
-    border: 1px solid transparent;
-    transition: border-color .2s, background .2s;
-}
-.x-opt:hover { background: var(--ink-12); }
-.x-opt .xo-name { font-size: 13.5px; }
-.x-opt .xo-mark {
-    font-family: var(--font-mono); font-size: 11px; color: var(--signal);
-    opacity: 0;
-}
-.x-opt[aria-checked="true"] { border-color: var(--ink-25); }
-.x-opt[aria-checked="true"] .xo-mark { opacity: 1; }
-.x-opt:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+.clear-btn:hover { border-color: var(--signal); color: var(--signal); background: var(--signal-soft); }
+.clear-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.clear-btn:disabled { opacity: .32; cursor: not-allowed; }
+.clear-btn:disabled:hover { border-color: var(--ink-25); color: var(--ink-70); background: none; }
 
 /* ---------- 输入框 ---------- */
 .input-row {
@@ -394,7 +384,6 @@ body.qs-astra .composer {
     -webkit-backdrop-filter: blur(10px);
 }
 body.qs-astra .input-row { background: rgba(10, 14, 28, .66); }
-body.qs-astra .x-pop { background: #0a0e1c; }
 body.qs-astra .level-pill { background: #e8ecff; }
 body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 
@@ -425,7 +414,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         <footer class="composer">
             <div class="composer-inner">
 
-                <!-- 档位 + 高阶模型开关 -->
+                <!-- 档位 + 高阶模型直切开关 + 预留模型选择 + 清空对话 -->
                 <div class="level-dock">
                     <div class="level-track" id="levelTrack" data-level="l2" role="radiogroup" aria-label="档位">
                         <div class="level-pill" aria-hidden="true"></div>
@@ -433,18 +422,9 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
                         <button class="level-opt" type="button" role="radio" aria-checked="true" data-level="l2">Sol</button>
                         <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l3">Astra</button>
                     </div>
-                    <div class="x-wrap">
-                        <button class="x-btn" id="xBtn" type="button" aria-haspopup="true" aria-expanded="false" title="当前档位的高阶模型">X</button>
-                        <div class="x-pop" id="xPop" hidden role="menu">
-                            <div class="x-pop-title" id="xPopTitle">MODEL · SOL</div>
-                            <button class="x-opt" type="button" role="menuitemradio" aria-checked="true" data-boost="false">
-                                <span class="xo-name">标准模型</span><span class="xo-mark">[ ON ]</span>
-                            </button>
-                            <button class="x-opt" type="button" role="menuitemradio" aria-checked="false" data-boost="true">
-                                <span class="xo-name">X · 高阶模型</span><span class="xo-mark">[ ON ]</span>
-                            </button>
-                        </div>
-                    </div>
+                    <button class="x-btn" id="xBtn" type="button" aria-pressed="false" title="X · 当前档位的高阶模型开关">X</button>
+                    <button class="pick-btn" id="pickBtn" type="button" disabled aria-label="模型选择（待接入）" title="模型选择（待接入）"></button>
+                    <button class="clear-btn" id="clearBtn" type="button" title="清空对话 (Ctrl+K)">清空对话</button>
                 </div>
 
                 <div class="input-row">
@@ -466,9 +446,10 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
      file:// 直开：fetch 受限，改加载 base64 内联的 luna-assets.js。 -->
 <script>
     (function () {
+        var v = '20261015a';
         var files = location.protocol === 'file:'
-            ? ['plugins/luna/luna-assets.js', 'plugins/luna/luna.js']
-            : ['plugins/luna/luna.js'];
+            ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
+            : ['plugins/luna/luna.js?v=' + v];
         files.forEach(function (f) {
             var s = document.createElement('script');
             s.async = false;          /* 保序：assets 必须先于 luna.js */
@@ -500,8 +481,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     var sendBtn    = $('#sendBtn');
     var trackEl    = $('#levelTrack');
     var xBtn       = $('#xBtn');
-    var xPop       = $('#xPop');
-    var xPopTitle  = $('#xPopTitle');
+    var clearBtn   = $('#clearBtn');
 
     /* ---------------- 状态：只有一条对话 ---------------- */
     var session = load();
@@ -540,7 +520,6 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         var astra = level === 'l3';
         document.body.classList.toggle('qs-astra', astra);
         if (bgApi) bgApi.setMode(astra ? 'astra' : 'rain');
-        xPopTitle.textContent = 'MODEL · ' + LEVELS[level].name.toUpperCase();
         if (animate) {
             trackEl.classList.remove('scan');
             void trackEl.offsetWidth;
@@ -555,33 +534,15 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     });
 
     /* ============================================================
-       X：当前档位的高阶模型开关（浮层）
+       X：当前档位的高阶模型开关（点击直接切换，无浮层）
        ============================================================ */
     function setBoost(on) {
         session.boost = !!on;
         xBtn.classList.toggle('on', session.boost);
-        xPop.querySelectorAll('.x-opt').forEach(function (b) {
-            b.setAttribute('aria-checked', (b.dataset.boost === 'true') === session.boost ? 'true' : 'false');
-        });
+        xBtn.setAttribute('aria-pressed', session.boost ? 'true' : 'false');
         save();
     }
-    function openX(open) {
-        xPop.hidden = !open;
-        xBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-    xBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        openX(xPop.hidden);
-    });
-    xPop.addEventListener('click', function (e) {
-        var b = e.target.closest('.x-opt');
-        if (b) { setBoost(b.dataset.boost === 'true'); openX(false); }
-    });
-    document.addEventListener('click', function (e) {
-        if (!xPop.hidden && !xPop.contains(e.target)) openX(false);
-    });
-    function onDocKey(e) { if (e.key === 'Escape') openX(false); }
-    document.addEventListener('keydown', onDocKey);
+    xBtn.addEventListener('click', function () { setBoost(!session.boost); });
 
     /* ============================================================
        消息渲染
@@ -640,17 +601,23 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         return out.join('');
     }
 
+    function syncClearBtn() {
+        clearBtn.disabled = generating || !session.msgs.length;
+    }
+
     function renderStream() {
         innerEl.innerHTML = '';
         if (!session.msgs.length) {
             emptyEl.hidden = false;
             innerEl.hidden = true;
+            syncClearBtn();
             return;
         }
         emptyEl.hidden = true;
         innerEl.hidden = false;
         session.msgs.forEach(function (m) { innerEl.appendChild(buildMsg(m, false)); });
         streamEl.scrollTop = streamEl.scrollHeight;
+        syncClearBtn();
     }
 
     function buildMsg(m, live) {
@@ -800,17 +767,20 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         renderStream();
         inputEl.focus();
     }
+    clearBtn.addEventListener('click', clearChat);
 
     function startGenerating() {
         generating = true;
         sendBtn.classList.add('stop');
         sendBtn.textContent = 'STOP';
+        syncClearBtn();
     }
     function stopGenerating() {
         generating = false;
         abortCtrl = null;
         sendBtn.classList.remove('stop');
         sendBtn.textContent = 'SEND';
+        syncClearBtn();
     }
 
     sendBtn.addEventListener('click', function () {
@@ -870,7 +840,9 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     function ensureLuna() {
         if (!window.Luna) return Promise.reject(new Error('Luna 脚本未载入'));
         if (!lunaEnginePromise) {
-            lunaEnginePromise = window.Luna.loadDefault().catch(function (e) {
+            lunaEnginePromise = window.Luna.loadDefault({
+                log: function (m) { try { console.warn('[Luna] ' + m); } catch (e) {} }
+            }).catch(function (e) {
                 lunaEnginePromise = null;
                 throw e;
             });
@@ -1114,9 +1086,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     window.__optionextPageStop = function () {
         if (bgApi) { bgApi.stop(); bgApi = null; }
         document.removeEventListener('keydown', onKeyDown);
-        document.removeEventListener('keydown', onDocKey);
         document.body.classList.remove('qs-astra');
-        openX(false);
         if (abortCtrl) abortCtrl.abort();
     };
 })();

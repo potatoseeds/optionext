@@ -300,12 +300,16 @@
     return new Engine(ex, model);
   }
 
-  /* 本脚本所在目录（普通 <script> 执行期 currentScript 有效） */
+  /* 版本号：随构建更新，挂在所有资产 URL 上，防止 CDN 边缘缓存新旧错配 */
+  var ASSET_VERSION = '20261015a';
+
+  /* 本脚本所在目录（普通 <script> 执行期 currentScript 有效；
+     去掉可能存在的 ?v= 查询再取目录） */
   var PLUGIN_BASE = (function () {
     try {
       if (typeof document !== 'undefined' && document.currentScript &&
           document.currentScript.src) {
-        return document.currentScript.src.replace(/[^/]*$/, '');
+        return document.currentScript.src.split('?')[0].replace(/[^/]*$/, '');
       }
     } catch (e) {}
     return 'plugins/luna/';
@@ -318,15 +322,61 @@
     model: '../../models/luna/markov_neutral3322.bin'
   };
 
-  async function fetchBytes(url) {
-    var resp = await fetch(url, { cache: 'force-cache' });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + url);
-    return new Uint8Array(await resp.arrayBuffer());
+  function assetUrl(rel, base) {
+    var u = new URL(rel, base);
+    u.search = u.search ? u.search + '&v=' + ASSET_VERSION : '?v=' + ASSET_VERSION;
+    return u.href;
+  }
+
+  /* 大文件（词典 2.6MB / 模型 3.4MB，经 CDN 回源可能较慢）：
+     60 秒超时 + 失败重试 1 次 */
+  async function fetchBytes(url, attempt) {
+    attempt = attempt || 0;
+    var ctrl = null, timer = 0;
+    try {
+      if (typeof AbortController !== 'undefined') {
+        ctrl = new AbortController();
+        timer = setTimeout(function () { ctrl.abort(); }, 60000);
+      }
+      var resp = await fetch(url, {
+        cache: 'force-cache',
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + url);
+      return new Uint8Array(await resp.arrayBuffer());
+    } catch (e) {
+      if (attempt < 1) {
+        await new Promise(function (r) { setTimeout(r, 400); });
+        return fetchBytes(url, attempt + 1);
+      }
+      throw e;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /* 动态注入 luna-assets.js（仅在独立文件通道失败时才加载，省 8MB 常态流量） */
+  var embeddedPromise = null;
+  function loadEmbeddedScript() {
+    if (typeof global.__LUNA_ASSETS__ !== 'undefined') return Promise.resolve();
+    if (embeddedPromise) return embeddedPromise;
+    embeddedPromise = new Promise(function (resolve, reject) {
+      if (typeof document === 'undefined') { reject(new Error('no document')); return; }
+      var s = document.createElement('script');
+      s.src = assetUrl('luna-assets.js', PLUGIN_BASE);
+      s.onload = function () {
+        if (typeof global.__LUNA_ASSETS__ !== 'undefined') resolve();
+        else reject(new Error('luna-assets.js loaded but no __LUNA_ASSETS__'));
+      };
+      s.onerror = function () { reject(new Error('luna-assets.js load error')); };
+      document.head.appendChild(s);
+    }).catch(function (e) { embeddedPromise = null; throw e; });
+    return embeddedPromise;
   }
 
   async function fromEmbedded(opt) {
     if (typeof global.__LUNA_ASSETS__ === 'undefined') {
-      throw new Error('Luna: assets unavailable (no luna-assets.js, fetch failed)');
+      await loadEmbeddedScript();
     }
     var A = global.__LUNA_ASSETS__;
     return createEngine(
@@ -338,8 +388,8 @@
   /**
    * 装载默认中性引擎：
    *  - http(s) 静态站点：fetch 独立 wasm/词典/模型（可被浏览器/CDN 缓存）；
-   *    任一文件缺失则回退内联 base64（luna-assets.js）
-   *  - file:// 直开：fetch 受限，直接用内联 base64
+   *    任一文件失败/超时 → 动态加载 luna-assets.js 走 base64 内联兜底
+   *  - file:// 直开：fetch 受限，页面已直接内联 luna-assets.js
    */
   async function loadDefault(opt) {
     opt = opt || {};
@@ -349,9 +399,9 @@
       try {
         var base = opt.baseUrl || PLUGIN_BASE;
         var parts = await Promise.all([
-          fetchBytes(new URL(ASSET_FILES.wasm, base).href),
-          fetchBytes(new URL(ASSET_FILES.dict, base).href),
-          fetchBytes(new URL(ASSET_FILES.model, base).href)
+          fetchBytes(assetUrl(ASSET_FILES.wasm, base)),
+          fetchBytes(assetUrl(ASSET_FILES.dict, base)),
+          fetchBytes(assetUrl(ASSET_FILES.model, base))
         ]);
         return await createEngine(parts[0], parts[1], parts[2], opt);
       } catch (e) {
