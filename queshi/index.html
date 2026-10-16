@@ -864,6 +864,55 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        ============================================================ */
     var lunaEnginePromise = null;
     var lunaCallCount = 0;
+    var lunaEmo8Promise = null;     /* emo8 八情感链引擎（懒加载，boost 时才用） */
+    var emoLexiconPromise = null;   /* 情感关键词词典（懒加载） */
+
+    /* 情感名 → emo8 chain 索引（与 markov_emo8.bin 内链顺序严格一致） */
+    var EMOTION_TO_CHAIN = { '乐': 0, '好': 1, '怒': 2, '哀': 3,
+                             '惧': 4, '恶': 5, '惊': 6, '中性': 7 };
+
+    /* 情感词典懒加载：fetch dutir_emotion_7class.csv → {word: chainIdx} */
+    function loadEmoLexicon() {
+        if (emoLexiconPromise) return emoLexiconPromise;
+        emoLexiconPromise = (async function () {
+            var url = new URL('../models/luna/dutir_emotion_7class.csv',
+                document.currentScript ? document.currentScript.src : location.href);
+            var resp = await fetch(url.href + '?v=' + Date.now());
+            if (!resp.ok) throw new Error('情感词典加载失败: HTTP ' + resp.status);
+            var text = await resp.text();
+            var lines = text.split(/\r?\n/);
+            var dict = Object.create(null);
+            for (var i = 1; i < lines.length; i++) {     /* 跳过 BOM 头行 */
+                var line = lines[i];
+                if (!line) continue;
+                var c = line.lastIndexOf(',');
+                if (c <= 0) continue;
+                var w = line.substring(0, c);
+                var e = line.substring(c + 1);
+                var idx = EMOTION_TO_CHAIN[e];
+                if (idx != null) dict[w] = idx;
+            }
+            return dict;
+        })().catch(function (e) { emoLexiconPromise = null; throw e; });
+        return emoLexiconPromise;
+    }
+
+    /** 情感投票：对 MMSEG 分词结果统计情感关键词，返回 chain idx（默认 7=中性） */
+    function detectEmotion(words, dict) {
+        var votes = [0, 0, 0, 0, 0, 0, 0, 0];
+        for (var i = 0; i < words.length; i++) {
+            var idx = dict[words[i]];
+            if (idx != null) votes[idx]++;
+        }
+        /* 有非零投票且最高票不是中性 → 用它；否则默认中性 */
+        var best = 7, bestN = 0;
+        for (var j = 0; j < 7; j++) {
+            if (votes[j] > bestN) { bestN = votes[j]; best = j; }
+        }
+        if (bestN === 0) return 7;
+        return best;
+    }
+
     function ensureLuna(onStatus) {
         if (!window.Luna) return Promise.reject(new Error('Luna 脚本未载入'));
         if (!lunaEnginePromise) {
@@ -890,40 +939,86 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         var q = [];
         var waiter = null;
         function push(s) { if (waiter) { var w = waiter; waiter = null; w(s); } else q.push(s); }
-        var p = ensureLuna(push);
 
-        var engine = null;
-        while (!engine) {
-            var statusP = q.length ? Promise.resolve(q.shift())
-                                   : new Promise(function (r) { waiter = r; });
-            var win = await Promise.race([
-                statusP.then(function (s) { return { status: s }; }),
-                p.then(function (e) { return { engine: e }; },
-                       function (e) { return { error: e }; }),
-                new Promise(function (resolve) {
-                    if (signal.aborted) resolve({ aborted: true });
-                    else signal.addEventListener('abort', function () { resolve({ aborted: true }); });
-                })
-            ]);
-            if (win.aborted) return;
-            if (win.error) throw win.error;
-            if (win.engine) { engine = win.engine; break; }
-            yield { type: 'status', text: lunaStatusLabel(win.status) };
-        }
-        while (q.length) yield { type: 'status', text: lunaStatusLabel(q.shift()) };
-        if (signal.aborted) return;
+        var engine = null;       /* 最终用来生成的引擎 */
+        var segmentEngine = null;/* 用来分词的引擎（与 engine 可不同） */
+        var emotionIdx = 7;      /* 默认中性 */
 
         if (boost) {
-            /* emo8 接缝：大模型未到位，先回落中性链 */
-            yield { type: 'delta', text: '〔X · emo8 高阶链尚未装入，本次由 Luna 中性链代答〕\n\n' };
-            await sleep(220);
+            /* ---- emo8 模式：并行拉 emo8 引擎 + 情感词典 ---- */
+            if (!lunaEmo8Promise) {
+                lunaEmo8Promise = window.Luna.loadEmo8({
+                    log: function (m) { try { console.warn('[Luna/emo8] ' + m); } catch (e) {} },
+                    onProgress: push
+                }).catch(function (e) {
+                    lunaEmo8Promise = null;
+                    throw e;
+                });
+            }
+            var lexP = loadEmoLexicon();
+
+            /* 等待 emo8 引擎 + 词典就绪，透传进度/status */
+            var emoEngine = null, emoDict = null;
+            var seenStatus = Object.create(null);
+            while (!emoEngine || !emoDict) {
+                var win = await Promise.race([
+                    q.length ? Promise.resolve({ status: q.shift() })
+                             : new Promise(function (r) { waiter = r; }),
+                    lunaEmo8Promise.then(function (e) { return { emo: e }; },
+                                         function (e) { return { error: e }; }),
+                    lexP.then(function (d) { return { dict: d }; },
+                              function (e) { return { error: e }; }),
+                    new Promise(function (resolve) {
+                        if (signal.aborted) resolve({ aborted: true });
+                        else signal.addEventListener('abort', function () { resolve({ aborted: true }); });
+                    })
+                ]);
+                if (win.aborted) return;
+                if (win.error) throw win.error;
+                if (win.emo) emoEngine = win.emo;
+                if (win.dict) emoDict = win.dict;
+                if (win.status) {
+                    var tag = lunaStatusLabel(win.status);
+                    if (!seenStatus[tag]) { yield { type: 'status', text: tag }; seenStatus[tag] = true; }
+                }
+            }
+            engine = emoEngine;
+            segmentEngine = emoEngine;
+
+            /* 用 emo8 引擎分词 → 情感投票 → 选 chain */
+            var segWords = segmentEngine.segment(text);
+            emotionIdx = detectEmotion(segWords, emoDict);
+            var emoName = window.Luna.EMO8_CHAINS[emotionIdx] || '中性';
+            yield { type: 'delta', text: '〔X · emo8 · ' + emoName + ' 链〕\n\n' };
+            await sleep(180);
             if (signal.aborted) return;
         } else {
+            /* ---- neutral 模式：确保默认引擎就绪 ---- */
+            var p = ensureLuna(push);
+            while (!engine) {
+                var statusP = q.length ? Promise.resolve(q.shift())
+                                       : new Promise(function (r) { waiter = r; });
+                var win = await Promise.race([
+                    statusP.then(function (s) { return { status: s }; }),
+                    p.then(function (e) { return { engine: e }; },
+                           function (e) { return { error: e }; }),
+                    new Promise(function (resolve) {
+                        if (signal.aborted) resolve({ aborted: true });
+                        else signal.addEventListener('abort', function () { resolve({ aborted: true }); });
+                    })
+                ]);
+                if (win.aborted) return;
+                if (win.error) throw win.error;
+                if (win.engine) { engine = win.engine; break; }
+                yield { type: 'status', text: lunaStatusLabel(win.status) };
+            }
+            while (q.length) yield { type: 'status', text: lunaStatusLabel(q.shift()) };
+            if (signal.aborted) return;
             await sleep(140);
         }
 
         var rngBase = (Date.now() ^ Math.imul(lunaCallCount++, 2654435761)) >>> 0;
-        var r = engine.reply(text, { chain: 0, sample: 0, rngBase: rngBase });
+        var r = engine.reply(text, { chain: boost ? emotionIdx : 0, sample: 0, rngBase: rngBase });
         if (!r.tokens.length) {
             yield { type: 'delta', text: '……' };
             return;

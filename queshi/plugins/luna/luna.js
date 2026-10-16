@@ -302,7 +302,11 @@
 
   /* 版本号：随构建更新，挂在所有资产 URL 上，防止 CDN 边缘缓存新旧错配。
      资产变动时与 index.html 里的 v 一起递增 */
-  var ASSET_VERSION = '20261015b';
+  var ASSET_VERSION = '20261016a';
+
+  /* emo8 情感链索引（与 markov_emo8.bin 内链名一一对应）。
+     neutral3322 只有 1 条链（中性），emo8 则是八维情感链。 */
+  var EMO8_CHAINS = ['乐', '好', '怒', '哀', '惧', '恶', '惊', '中性'];
 
   /* 本脚本所在目录（普通 <script> 执行期 currentScript 有效；
      去掉可能存在的 ?v= 查询再取目录） */
@@ -330,6 +334,13 @@
       sizeRaw: 3443704, sizeGz: 1076494,
       magic: [0x4d, 0x4b, 0x42, 0x32] }
   ];
+
+  /* emo8：八情感链大模型 (~15.6MB / gz 4.8MB)，
+     单独定义，不跟默认 neutral 一起下——用户开 X(boost) 时按需拉取 */
+  var EMO8_SPEC = { key: 'emo8', raw: '../../models/luna/markov_emo8.bin',
+    gz: '../../models/luna/markov_emo8.bin.gz',
+    sizeRaw: 15641190, sizeGz: 5043838,
+    magic: [0x4d, 0x4b, 0x42, 0x32] };
 
   var FETCH_TIMEOUT = 150000;   /* 单文件总超时（弱网阈值约 7KB/s） */
   var FETCH_RETRIES = 1;        /* 单候选失败重试次数 */
@@ -590,13 +601,50 @@
     return fromEmbedded(opt, base);
   }
 
+  /**
+   * 按需装载 emo8 八情感链引擎。
+   * 与 loadDefault 的关系：
+   *  - wasm + dict 走同一套 Cache Storage key，若 neutral 已下过则零下载
+   *  - emo8 模型 (~15.6MB / gz 4.8MB) 首次调用时才拉，缓存后复用
+   *  - file:// 环境：wasm+dict 从内联包取，emo8 模型仍需 fetch（内联包不带它）
+   * 返回 Engine（与 loadDefault 同款，只是 model 换成 nchains=8 的 emo8 MKB2）
+   */
+  async function loadEmo8(opt) {
+    opt = opt || {};
+    var base = opt.baseUrl || PLUGIN_BASE;
+    var isHttp = typeof location !== 'undefined' &&
+                 (location.protocol === 'http:' || location.protocol === 'https:');
+
+    if (isHttp && !opt.embedded) {
+      var progress = progressTracker();
+      if (opt.onProgress) opt.onProgress({ phase: 'download', progress: 0 });
+      /* wasm + dict 跟 loadDefault 完全同 key，缓存命中即秒过 */
+      var wasmPart = getAsset(ASSET_SPECS[0], base, progress, opt);
+      var dictPart = getAsset(ASSET_SPECS[1], base, progress, opt);
+      var emo8Part = getAsset(EMO8_SPEC, base, progress, opt);
+      var parts = await Promise.all([wasmPart, dictPart, emo8Part]);
+      if (opt.onProgress) opt.onProgress({ phase: 'init', progress: 1 });
+      return await createEngine(parts[0], parts[1], parts[2], opt);
+    }
+
+    /* file://：wasm+dict 从内联包拿，emo8 模型单独 fetch */
+    await loadEmbeddedScript(opt);
+    var A = global.__LUNA_ASSETS__;
+    var wasm = decodeAsset(A.wasm);
+    var dict = decodeAsset(A.dict);
+    var emo8Bytes = await getAsset(EMO8_SPEC, base, progressTracker(), opt);
+    return await createEngine(wasm, dict, emo8Bytes, opt);
+  }
+
   var Luna = {
     createEngine: createEngine,
     loadDefault: loadDefault,
+    loadEmo8: loadEmo8,
     b64ToBytes: b64ToBytes,
     MKB2: MKB2,
     EOS_ID: EOS_ID,
-    MAX_GEN: MAX_GEN
+    MAX_GEN: MAX_GEN,
+    EMO8_CHAINS: EMO8_CHAINS
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Luna;
