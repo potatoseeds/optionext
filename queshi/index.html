@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>确实 QUESHI · 对话台</title>
 <link rel="icon" type="image/png" href="../image/LOGO%E7%AB%96%E7%89%88.png">
 <script>
@@ -457,7 +458,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
      file:// 直开：fetch 受限，改加载 base64 内联的 luna-assets.js。 -->
 <script>
     (function () {
-        var v = '20261015b';
+        var v = '20261016b';
         var files = location.protocol === 'file:'
             ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
             : ['plugins/luna/luna.js?v=' + v];
@@ -875,9 +876,8 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     function loadEmoLexicon() {
         if (emoLexiconPromise) return emoLexiconPromise;
         emoLexiconPromise = (async function () {
-            var url = new URL('../models/luna/dutir_emotion_7class.csv',
-                document.currentScript ? document.currentScript.src : location.href);
-            var resp = await fetch(url.href + '?v=' + Date.now());
+            var url = new URL('models/luna/dutir_emotion_7class.csv', location.href);
+            var resp = await fetch(url.href + '?v=20261016a');
             if (!resp.ok) throw new Error('情感词典加载失败: HTTP ' + resp.status);
             var text = await resp.text();
             var lines = text.split(/\r?\n/);

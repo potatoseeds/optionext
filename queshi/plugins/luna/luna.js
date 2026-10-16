@@ -302,7 +302,7 @@
 
   /* 版本号：随构建更新，挂在所有资产 URL 上，防止 CDN 边缘缓存新旧错配。
      资产变动时与 index.html 里的 v 一起递增 */
-  var ASSET_VERSION = '20261016a';
+  var ASSET_VERSION = '20261016b';
 
   /* emo8 情感链索引（与 markov_emo8.bin 内链名一一对应）。
      neutral3322 只有 1 条链（中性），emo8 则是八维情感链。 */
@@ -554,11 +554,10 @@
     return {
       slots: {},
       pct: function () {
-        var keys = ASSET_SPECS.map(function (s) { return s.key; });
+        var keys = Object.keys(this.slots);
+        if (!keys.length) return 0;
         var sum = 0;
-        for (var i = 0; i < keys.length; i++) {
-          sum += this.slots[keys[i]] ? this.slots[keys[i]].ratio : 0;
-        }
+        for (var i = 0; i < keys.length; i++) sum += this.slots[keys[i]].ratio;
         return sum / keys.length;
       }
     };
