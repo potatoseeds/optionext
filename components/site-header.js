@@ -23,8 +23,8 @@
     var SELF = new URL(document.currentScript.src, document.baseURI);
     var ROOT = new URL('../', SELF).href;                 // 以 / 结尾
     var URL_CSS  = ROOT + 'components/site-header.css';
-    var URL_LOGO_LIGHT = ROOT + 'image/' + encodeURIComponent('LOGO横版黑.png'); // 明主题用黑 logo
-    var URL_LOGO_DARK  = ROOT + 'image/' + encodeURIComponent('LOGO横版白.png'); // 暗主题用白 logo
+    var URL_LOGO_LIGHT = ROOT + 'images/' + encodeURIComponent('LOGO横版黑.png'); // 明主题用黑 logo
+    var URL_LOGO_DARK  = ROOT + 'images/' + encodeURIComponent('LOGO横版白.png'); // 暗主题用白 logo
     var THEME_KEY = 'optionext-theme';
 
     /* ---------- 导航配置（后续直接改这里） ----------

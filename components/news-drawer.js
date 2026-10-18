@@ -253,6 +253,8 @@
                     '', displayHref(pg)
                 );
             } catch (e) {}
+            try { window.dispatchEvent(new CustomEvent('optionext:locationchange')); }
+            catch (e) {}
         }
 
         function onHeadClick(it) {
