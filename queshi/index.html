@@ -581,7 +581,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
     if (!window.Luna) {
         (function () {
-            var v = '20261018c';
+            var v = '20261018d';
             var files = location.protocol === 'file:'
                 ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
                 : ['plugins/luna/luna.js?v=' + v];
@@ -640,6 +640,12 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        ============================================================ */
     function setLevel(level, animate) {
         if (!LEVELS[level]) return;
+        /* 切到非 Luna 档时：X 模式（emo8）不可用，自动关掉，避免"按钮亮但用不了" */
+        if (level !== 'l1' && session.boost) {
+            session.boost = false;
+            xBtn.classList.remove('on');
+            xBtn.setAttribute('aria-pressed', 'false');
+        }
         session.level = level;
         trackEl.dataset.level = level;
         trackEl.querySelectorAll('.level-opt').forEach(function (b) {
@@ -677,9 +683,14 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 
     /* ============================================================
        X：当前档位的高阶模型开关（点击直接切换，无浮层）
+       只在 Luna 档生效——非 Luna 档亮 X 没有实际能力
        ============================================================ */
     function setBoost(on) {
         session.boost = !!on;
+        /* 开启时：如果不在 Luna 档，自动切到 Luna（否则按钮亮着但用不了） */
+        if (session.boost && session.level !== 'l1') {
+            setLevel('l1', true);
+        }
         xBtn.classList.toggle('on', session.boost);
         xBtn.setAttribute('aria-pressed', session.boost ? 'true' : 'false');
         save();
