@@ -304,7 +304,7 @@ body.sh-dock-bottom .app {
     box-shadow: 0 0 0 1px var(--signal), 0 0 18px var(--signal-soft), 0 0 26px rgba(223,59,42,.25);
 }
 
-/* 模型选择按钮：可弹出下载面板 */
+/* 模型选择按钮 */
 .pick-btn {
     flex-shrink: 0;
     height: 39px;
@@ -318,8 +318,6 @@ body.sh-dock-bottom .app {
     display: inline-flex; align-items: center; gap: 6px;
 }
 .pick-btn:hover { border-color: var(--signal); color: var(--signal); }
-.pick-btn .pick-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-25); transition: background .25s; }
-.pick-btn.cached .pick-dot { background: var(--signal); box-shadow: 0 0 6px var(--signal); }
 
 /* ============================================================
    模型下载面板（浮层）
@@ -337,8 +335,7 @@ body.sh-dock-bottom .app {
 .md-panel {
     background: var(--paper);
     border: 1px solid var(--ink);
-    width: min(520px, 92vw);
-    max-height: 82vh;
+    width: min(480px, 92vw);
     display: flex; flex-direction: column;
     transform: translateY(16px) scale(.98);
     transition: transform .34s var(--ease-out);
@@ -366,91 +363,69 @@ body.sh-dock-bottom .app {
 .md-close:hover { color: var(--signal); border-color: var(--signal); }
 
 .md-body {
-    padding: 20px 24px 24px;
-    overflow-y: auto;
-    flex: 1;
-}
-.md-foot {
-    padding: 14px 24px 18px;
-    border-top: 1px solid var(--ink-25);
-    display: flex; align-items: center; gap: 12px;
+    padding: 8px 0;
 }
 
-/* 模型卡片 */
+/* 模型列表行 */
 .md-card {
-    border: 1px solid var(--ink-25);
-    padding: 16px 18px;
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px 16px;
-    align-items: start;
-    transition: border-color .25s, background .25s;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 24px;
+    border-bottom: 1px dotted var(--ink-25);
+    transition: background .2s;
 }
-.md-card:hover { border-color: var(--ink); }
-.md-card-title {
-    font-family: var(--font-mono); font-size: 13px; font-weight: 600;
-    letter-spacing: .06em;
-    display: flex; align-items: center; gap: 10px;
-}
-.md-card-title .md-badge {
-    font-size: 9px; padding: 2px 6px;
-    border: 1px solid var(--signal); color: var(--signal);
-    letter-spacing: .1em;
-}
-.md-card-desc {
-    grid-column: 1 / -1;
-    font-size: 13.5px; color: var(--ink-70); line-height: 1.65;
-}
-.md-card-meta {
-    grid-column: 1;
-    display: flex; gap: 16px;
-    font-family: var(--font-mono); font-size: 10.5px;
-    color: var(--ink-45); letter-spacing: .08em;
-}
-.md-card-status {
-    text-align: right;
-    font-family: var(--font-mono); font-size: 11px;
-    letter-spacing: .1em;
-}
-.md-card-status.ok { color: var(--signal); }
-.md-card-status.ready { color: var(--ink-45); }
+.md-card:last-child { border-bottom: 0; }
+.md-card:hover { background: var(--ink-12); }
 
-.md-download-btn {
-    grid-column: 2; grid-row: 2 / 5;
-    align-self: center;
-    padding: 10px 20px;
+.md-card-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .06em;
+}
+.md-card-size {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-45);
+    letter-spacing: .06em;
+}
+.md-card-btn {
+    padding: 8px 18px;
     background: var(--ink); color: var(--paper);
-    font-family: var(--font-mono); font-size: 11px;
-    letter-spacing: .16em;
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: .14em;
     border: 1px solid var(--ink);
     transition: background .3s var(--ease-out), color .3s var(--ease-out);
-    min-width: 120px;
+    min-width: 96px;
     text-align: center;
 }
-.md-download-btn:hover:not(:disabled) { background: transparent; color: var(--ink); }
-.md-download-btn:disabled { opacity: .35; cursor: not-allowed; }
-.md-download-btn.cancel { background: var(--signal); border-color: var(--signal); }
-.md-download-btn.cancel:hover { background: transparent; color: var(--signal); }
+.md-card-btn:hover { background: transparent; color: var(--ink); }
+.md-card-btn.cancel { background: var(--signal); border-color: var(--signal); color: #fff; }
+.md-card-btn.cancel:hover { background: transparent; color: var(--signal); }
+.md-card-btn:disabled { opacity: .35; cursor: not-allowed; }
 
-/* 进度条 */
-.md-progress {
-    grid-column: 1 / -1;
-    margin-top: 4px;
-    height: 4px; background: var(--ink-12);
-    overflow: hidden;
+/* 进度条（嵌在行内，隐藏式） */
+.md-progress-wrap {
     display: none;
+    grid-column: 1 / -1;
+    padding-top: 8px;
 }
-.md-progress.on { display: block; }
+.md-progress-wrap.on { display: block; }
+.md-progress {
+    height: 3px; background: var(--ink-12);
+    overflow: hidden;
+}
 .md-progress-bar {
     height: 100%; width: 0;
     background: var(--signal);
     transition: width .18s linear;
 }
 .md-progress-label {
-    grid-column: 1;
-    font-family: var(--font-mono); font-size: 10.5px;
-    color: var(--ink-45); letter-spacing: .08em;
-    min-height: 14px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-45); letter-spacing: .06em;
+    margin-top: 4px;
 }
 
 /* 清空对话：贴右收口 */
@@ -575,10 +550,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
                         <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l3">Astra</button>
                     </div>
                     <button class="x-btn" id="xBtn" type="button" aria-pressed="false" title="X · 当前档位的高阶模型开关">X</button>
-                    <button class="pick-btn" id="pickBtn" type="button" aria-label="模型选择" title="模型选择">
-                        <span class="pick-dot"></span>
-                        <span>MODEL</span>
-                    </button>
+                    <button class="pick-btn" id="pickBtn" type="button" aria-label="模型管理" title="模型管理">MODEL</button>
                     <button class="clear-btn" id="clearBtn" type="button" title="清空对话 (Ctrl+K)">清空对话</button>
                 </div>
 
@@ -609,7 +581,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
     if (!window.Luna) {
         (function () {
-            var v = '20261017c';
+            var v = '20261018a';
             var files = location.protocol === 'file:'
                 ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
                 : ['plugins/luna/luna.js?v=' + v];
@@ -1426,31 +1398,17 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         mdModal.innerHTML =
             '<div class="md-panel" role="dialog" aria-label="模型管理">' +
                 '<div class="md-head">' +
-                    '<span class="mono">MODEL / 模型管理</span>' +
+                    '<span class="mono">MODEL</span>' +
                     '<h3>模型库</h3>' +
                     '<button class="md-close" type="button" aria-label="关闭">×</button>' +
                 '</div>' +
                 '<div class="md-body">' +
                     '<div class="md-card" data-model="lunax">' +
-                        '<div class="md-card-title">' +
-                            'LunaX' +
-                            '<span class="md-badge">X · EMO8</span>' +
-                        '</div>' +
-                        '<div class="md-card-desc">' +
-                            '八情感链大模型 · 在 Luna 档开启 X 时生效。' +
-                            '对每次输入做情感投票，匹配八维情感链生成带情绪色彩的回复。' +
-                        '</div>' +
-                        '<div class="md-card-meta">' +
-                            '<span>15.6MB raw / 4.8MB gz</span>' +
-                        '</div>' +
-                        '<div class="md-card-status ready" data-status>未下载</div>' +
-                        '<button class="md-download-btn" type="button" data-action>下载</button>' +
-                        '<div class="md-progress"><div class="md-progress-bar"></div></div>' +
-                        '<div class="md-progress-label" data-label></div>' +
+                        '<div class="md-card-name">LunaX</div>' +
+                        '<div class="md-card-size" data-size>—</div>' +
+                        '<button class="md-card-btn" type="button" data-action>下载</button>' +
+                        '<div class="md-progress-wrap"><div class="md-progress"><div class="md-progress-bar"></div></div><div class="md-progress-label" data-label></div></div>' +
                     '</div>' +
-                '</div>' +
-                '<div class="md-foot mono" style="font-size:10px;color:var(--ink-45)">' +
-                    '全部模型下载后缓存在本地浏览器（Cache Storage），不会上传任何数据。' +
                 '</div>' +
             '</div>';
 
@@ -1498,33 +1456,41 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     function updateModelCard(cached, downloading, pct, label) {
         if (!mdModal) return;
         var card = mdModal.querySelector('.md-card');
-        var status = card.querySelector('[data-status]');
         var btn = card.querySelector('[data-action]');
-        var bar = card.querySelector('.md-progress');
+        var sizeEl = card.querySelector('[data-size]');
+        var wrap = card.querySelector('.md-progress-wrap');
         var barFill = card.querySelector('.md-progress-bar');
         var lbl = card.querySelector('[data-label]');
 
+        /* 体积：浏览器支持 DecompressionStream 时走预压 gz，否则下原始
+           这里用 Luna 导出的 EMO8_SPEC 算一次 */
+        var sizeText = '—';
+        if (window.Luna && Luna.EMO8_SPEC) {
+            var hasGz = typeof DecompressionStream !== 'undefined';
+            var bytes = hasGz && Luna.EMO8_SPEC.gz
+                ? Luna.EMO8_SPEC.sizeGz
+                : Luna.EMO8_SPEC.sizeRaw;
+            sizeText = formatSize(bytes);
+        }
+        sizeEl.textContent = sizeText;
+
         if (downloading) {
-            status.className = 'md-card-status ready';
-            status.textContent = '下载中';
             btn.textContent = '取消';
             btn.classList.add('cancel');
-            bar.classList.add('on');
+            wrap.classList.add('on');
             barFill.style.width = (pct || 0) + '%';
             lbl.textContent = label || '';
         } else if (cached) {
-            status.className = 'md-card-status ok';
-            status.textContent = '已缓存 ✓';
-            btn.textContent = '重新下载';
+            btn.textContent = '已下载';
+            btn.disabled = true;
             btn.classList.remove('cancel');
-            bar.classList.remove('on');
+            wrap.classList.remove('on');
             lbl.textContent = '';
         } else {
-            status.className = 'md-card-status ready';
-            status.textContent = '未下载';
             btn.textContent = '下载';
+            btn.disabled = false;
             btn.classList.remove('cancel');
-            bar.classList.remove('on');
+            wrap.classList.remove('on');
             lbl.textContent = '';
         }
     }
