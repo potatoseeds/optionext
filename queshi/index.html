@@ -609,7 +609,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
     if (!window.Luna) {
         (function () {
-            var v = '20261017a';
+            var v = '20261017b';
             var files = location.protocol === 'file:'
                 ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
                 : ['plugins/luna/luna.js?v=' + v];
@@ -1458,9 +1458,6 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
             if (e.target === mdModal) closeModelPanel();
         });
         mdModal.querySelector('.md-close').addEventListener('click', closeModelPanel);
-        mdModal.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') closeModelPanel();
-        });
         mdModal.querySelector('.md-card').addEventListener('click', function (e) {
             var btn = e.target.closest('[data-action]');
             if (btn) handleModelAction(btn);
@@ -1474,15 +1471,21 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         buildModelPanel();
         mdModal.classList.add('open');
         refreshModelStatus();
+        document.addEventListener('keydown', mdOnKey);
     }
 
     function closeModelPanel() {
+        document.removeEventListener('keydown', mdOnKey);
         if (mdDownloading) {
             if (mdAbortCtrl) mdAbortCtrl.abort();
             mdAbortCtrl = null;
             mdDownloading = false;
         }
         if (mdModal) mdModal.classList.remove('open');
+    }
+
+    function mdOnKey(e) {
+        if (e.key === 'Escape') closeModelPanel();
     }
 
     async function refreshModelStatus() {
@@ -1580,6 +1583,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     window.__optionextPageStop = function () {
         if (bgApi) { bgApi.stop(); bgApi = null; }
         document.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('keydown', mdOnKey);
         document.documentElement.removeAttribute('data-qs-astra');
         document.body.classList.remove('qs-astra');
         if (abortCtrl) abortCtrl.abort();
