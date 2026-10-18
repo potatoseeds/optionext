@@ -302,7 +302,7 @@
 
   /* 版本号：随构建更新，挂在所有资产 URL 上，防止 CDN 边缘缓存新旧错配。
      资产变动时与 index.html 里的 v 一起递增 */
-  var ASSET_VERSION = '20261016b';
+  var ASSET_VERSION = '20261016c';
 
   /* emo8 情感链索引（与 markov_emo8.bin 内链名一一对应）。
      neutral3322 只有 1 条链（中性），emo8 则是八维情感链。 */
@@ -378,7 +378,9 @@
       var c = await caches.open('luna-assets-' + ASSET_VERSION);
       var r = await c.match(keyUrl);
       if (r) return new Uint8Array(await r.arrayBuffer());
-    } catch (e) {}
+    } catch (e) {
+      try { console.error('[Luna cache] cacheGet 异常:', keyUrl, e); } catch (_) {}
+    }
     return null;
   }
   async function cachePut(keyUrl, bytes) {
@@ -388,7 +390,9 @@
       await c.put(keyUrl, new Response(bytes, {
         headers: { 'Content-Type': 'application/octet-stream' }
       }));
-    } catch (e) {}
+    } catch (e) {
+      try { console.error('[Luna cache] cachePut 异常:', keyUrl, e); } catch (_) {}
+    }
   }
 
   /* 流式下载：拿得到进度；单文件 150 秒超时 + 重试 1 次 */
@@ -601,38 +605,42 @@
   }
 
   /**
-   * 按需装载 emo8 八情感链引擎。
-   * 与 loadDefault 的关系：
-   *  - wasm + dict 走同一套 Cache Storage key，若 neutral 已下过则零下载
-   *  - emo8 模型 (~15.6MB / gz 4.8MB) 首次调用时才拉，缓存后复用
-   *  - file:// 环境：wasm+dict 从内联包取，emo8 模型仍需 fetch（内联包不带它）
-   * 返回 Engine（与 loadDefault 同款，只是 model 换成 nchains=8 的 emo8 MKB2）
+   * 装载 emo8 八情感链引擎（纯缓存模式，不主动下载）。
+   * 前提：wasm + dict 必须已在 Cache Storage 中（neutral 首次加载时写入），
+   *       emo8 模型也必须已被预缓存。任何一个缓存缺失都抛 EMO8_NOT_CACHED。
+   *       不会触发任何 fetch。
    */
   async function loadEmo8(opt) {
     opt = opt || {};
     var base = opt.baseUrl || PLUGIN_BASE;
-    var isHttp = typeof location !== 'undefined' &&
-                 (location.protocol === 'http:' || location.protocol === 'https:');
+    var progress = progressTracker();
 
-    if (isHttp && !opt.embedded) {
-      var progress = progressTracker();
-      if (opt.onProgress) opt.onProgress({ phase: 'download', progress: 0 });
-      /* wasm + dict 跟 loadDefault 完全同 key，缓存命中即秒过 */
-      var wasmPart = getAsset(ASSET_SPECS[0], base, progress, opt);
-      var dictPart = getAsset(ASSET_SPECS[1], base, progress, opt);
-      var emo8Part = getAsset(EMO8_SPEC, base, progress, opt);
-      var parts = await Promise.all([wasmPart, dictPart, emo8Part]);
-      if (opt.onProgress) opt.onProgress({ phase: 'init', progress: 1 });
-      return await createEngine(parts[0], parts[1], parts[2], opt);
+    var wasmKey = assetUrl(ASSET_SPECS[0].raw, base);
+    var dictKey = assetUrl(ASSET_SPECS[1].raw, base);
+    var emo8Key = assetUrl(EMO8_SPEC.raw, base);
+
+    if (opt.onProgress) opt.onProgress({ phase: 'download', progress: 0 });
+
+    var wasmCached = await cacheGet(wasmKey);
+    if (!magicOk(wasmCached, ASSET_SPECS[0].magic)) {
+      throw new Error('EMO8_NOT_CACHED:wasm');
     }
+    progress.slots.wasm = { ratio: 0.33 };
 
-    /* file://：wasm+dict 从内联包拿，emo8 模型单独 fetch */
-    await loadEmbeddedScript(opt);
-    var A = global.__LUNA_ASSETS__;
-    var wasm = decodeAsset(A.wasm);
-    var dict = decodeAsset(A.dict);
-    var emo8Bytes = await getAsset(EMO8_SPEC, base, progressTracker(), opt);
-    return await createEngine(wasm, dict, emo8Bytes, opt);
+    var dictCached = await cacheGet(dictKey);
+    if (!magicOk(dictCached, ASSET_SPECS[1].magic)) {
+      throw new Error('EMO8_NOT_CACHED:dict');
+    }
+    progress.slots.dict = { ratio: 0.66 };
+
+    var emo8Cached = await cacheGet(emo8Key);
+    if (!magicOk(emo8Cached, EMO8_SPEC.magic)) {
+      throw new Error('EMO8_NOT_CACHED:emo8');
+    }
+    progress.slots.emo8 = { ratio: 1 };
+
+    if (opt.onProgress) opt.onProgress({ phase: 'init', progress: 1 });
+    return await createEngine(wasmCached, dictCached, emo8Cached, opt);
   }
 
   var Luna = {

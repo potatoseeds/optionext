@@ -453,29 +453,31 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 <script src="../components/page-manifest.js?v=20261015g"></script>
 <!-- 软导航：与全站一致，页眉不重载、只换 <main> -->
 <script src="../components/page-transit.js?v=20261015f"></script>
-<!-- Luna：C(friso MMSEG) 编译的 wasm，全部在用户浏览器内运行，无后端。
-     http(s) 静态部署：只取 luna.js，wasm/词典/模型走独立文件（可缓存）；
-     file:// 直开：fetch 受限，改加载 base64 内联的 luna-assets.js。 -->
-<script>
-    (function () {
-        var v = '20261016b';
-        var files = location.protocol === 'file:'
-            ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
-            : ['plugins/luna/luna.js?v=' + v];
-        files.forEach(function (f) {
-            var s = document.createElement('script');
-            s.async = false;          /* 保序：assets 必须先于 luna.js */
-            s.src = f;
-            document.head.appendChild(s);
-        });
-    })();
-</script>
 <script data-page-script>
 /* ============================================================
    QUESHI 确识 · 对话台逻辑（单对话）
    ============================================================ */
 (function () {
     'use strict';
+
+    /* ---------------- Luna 引擎注入（幂等） ----------------
+       软导航换页时只有本 data-page-script 会被重跑，所以 Luna
+       脚本注入必须在这里做：首次加载时注入，重入时已存在则跳过。
+       luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
+    if (!window.Luna) {
+        (function () {
+            var v = '20261016c';
+            var files = location.protocol === 'file:'
+                ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
+                : ['plugins/luna/luna.js?v=' + v];
+            files.forEach(function (f) {
+                var s = document.createElement('script');
+                s.async = false;
+                s.src = f;
+                document.head.appendChild(s);
+            });
+        })();
+    }
 
     var STORE_KEY = 'queshi-session-v2';
     var LEVELS = {
@@ -945,7 +947,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         var emotionIdx = 7;      /* 默认中性 */
 
         if (boost) {
-            /* ---- emo8 模式：并行拉 emo8 引擎 + 情感词典 ---- */
+            /* ---- emo8 模式：纯缓存，不主动下载 ---- */
             if (!lunaEmo8Promise) {
                 lunaEmo8Promise = window.Luna.loadEmo8({
                     log: function (m) { try { console.warn('[Luna/emo8] ' + m); } catch (e) {} },
@@ -955,33 +957,48 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
                     throw e;
                 });
             }
-            var lexP = loadEmoLexicon();
 
-            /* 等待 emo8 引擎 + 词典就绪，透传进度/status */
-            var emoEngine = null, emoDict = null;
+            var emoEngine = null;
             var seenStatus = Object.create(null);
-            while (!emoEngine || !emoDict) {
+            while (!emoEngine) {
                 var win = await Promise.race([
                     q.length ? Promise.resolve({ status: q.shift() })
                              : new Promise(function (r) { waiter = r; }),
                     lunaEmo8Promise.then(function (e) { return { emo: e }; },
                                          function (e) { return { error: e }; }),
-                    lexP.then(function (d) { return { dict: d }; },
-                              function (e) { return { error: e }; }),
                     new Promise(function (resolve) {
                         if (signal.aborted) resolve({ aborted: true });
                         else signal.addEventListener('abort', function () { resolve({ aborted: true }); });
                     })
                 ]);
                 if (win.aborted) return;
-                if (win.error) throw win.error;
+                if (win.error) {
+                    var msg = (win.error && win.error.message) || '';
+                    if (msg.indexOf('EMO8_NOT_CACHED') === 0) {
+                        /* emo8 未缓存：友好提示，不再继续 */
+                        var missing = msg.split(':')[1] || 'emo8';
+                        var label = { wasm: '引擎核心', dict: '分词词典', emo8: 'X 模型' }[missing] || missing;
+                        yield { type: 'delta', text: '〔X 模式模型未装载〕\n' + label + ' 不在本地缓存中，请先手动下载后再开启 X。\n' };
+                        return;
+                    }
+                    throw win.error;
+                }
                 if (win.emo) emoEngine = win.emo;
-                if (win.dict) emoDict = win.dict;
                 if (win.status) {
                     var tag = lunaStatusLabel(win.status);
                     if (!seenStatus[tag]) { yield { type: 'status', text: tag }; seenStatus[tag] = true; }
                 }
             }
+
+            /* 引擎就绪后再加载词典（词典 fetch 失败同样友好提示） */
+            var emoDict = null;
+            try {
+                emoDict = await loadEmoLexicon();
+            } catch (e) {
+                yield { type: 'delta', text: '〔情感词典加载失败〕\n' + (e && e.message ? e.message : e) + '\n' };
+                return;
+            }
+
             engine = emoEngine;
             segmentEngine = emoEngine;
 
