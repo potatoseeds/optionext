@@ -581,7 +581,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
     if (!window.Luna) {
         (function () {
-            var v = '20261018a';
+            var v = '20261018b';
             var files = location.protocol === 'file:'
                 ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
                 : ['plugins/luna/luna.js?v=' + v];
@@ -1117,11 +1117,9 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
             engine = emoEngine;
             segmentEngine = emoEngine;
 
-            /* 用 emo8 引擎分词 → 情感投票 → 选 chain */
+            /* 用 emo8 引擎分词 → 情感投票 → 选 chain（内部使用，不暴露给用户） */
             var segWords = segmentEngine.segment(text);
             emotionIdx = detectEmotion(segWords, emoDict);
-            var emoName = window.Luna.EMO8_CHAINS[emotionIdx] || '中性';
-            yield { type: 'delta', text: '〔X · emo8 · ' + emoName + ' 链〕\n\n' };
             await sleep(180);
             if (signal.aborted) return;
         } else {
