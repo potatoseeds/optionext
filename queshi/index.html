@@ -304,14 +304,154 @@ body.sh-dock-bottom .app {
     box-shadow: 0 0 0 1px var(--signal), 0 0 18px var(--signal-soft), 0 0 26px rgba(223,59,42,.25);
 }
 
-/* 模型选择按钮：接缝预留，暂留空（不接线） */
+/* 模型选择按钮：可弹出下载面板 */
 .pick-btn {
     flex-shrink: 0;
-    width: 96px; height: 39px;
-    border: 1px dashed var(--ink-25);
-    transition: border-color .25s;
+    height: 39px;
+    padding: 0 14px;
+    border: 1px solid var(--ink-25);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    color: var(--ink-70);
+    transition: color .25s, border-color .25s, background .25s;
+    display: inline-flex; align-items: center; gap: 6px;
 }
-.pick-btn:disabled { cursor: not-allowed; }
+.pick-btn:hover { border-color: var(--signal); color: var(--signal); }
+.pick-btn .pick-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-25); transition: background .25s; }
+.pick-btn.cached .pick-dot { background: var(--signal); box-shadow: 0 0 6px var(--signal); }
+
+/* ============================================================
+   模型下载面板（浮层）
+   ============================================================ */
+.md-modal {
+    position: fixed; inset: 0;
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(var(--ink-rgb), .42);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .28s var(--ease-out);
+}
+.md-modal.open { opacity: 1; pointer-events: auto; }
+.md-panel {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    width: min(520px, 92vw);
+    max-height: 82vh;
+    display: flex; flex-direction: column;
+    transform: translateY(16px) scale(.98);
+    transition: transform .34s var(--ease-out);
+    box-shadow: 0 22px 60px rgba(var(--ink-rgb), .22);
+}
+.md-modal.open .md-panel { transform: translateY(0) scale(1); }
+
+.md-head {
+    display: flex; align-items: center; gap: 16px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--ink-25);
+}
+.md-head .mono { font-size: 10px; }
+.md-head h3 {
+    font-size: 18px; font-weight: 700; letter-spacing: -.01em;
+    flex: 1;
+}
+.md-close {
+    width: 28px; height: 28px;
+    border: 1px solid var(--ink-25);
+    font-family: var(--font-mono); font-size: 13px;
+    color: var(--ink-45);
+    transition: color .2s, border-color .2s;
+}
+.md-close:hover { color: var(--signal); border-color: var(--signal); }
+
+.md-body {
+    padding: 20px 24px 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+.md-foot {
+    padding: 14px 24px 18px;
+    border-top: 1px solid var(--ink-25);
+    display: flex; align-items: center; gap: 12px;
+}
+
+/* 模型卡片 */
+.md-card {
+    border: 1px solid var(--ink-25);
+    padding: 16px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 16px;
+    align-items: start;
+    transition: border-color .25s, background .25s;
+}
+.md-card:hover { border-color: var(--ink); }
+.md-card-title {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+    letter-spacing: .06em;
+    display: flex; align-items: center; gap: 10px;
+}
+.md-card-title .md-badge {
+    font-size: 9px; padding: 2px 6px;
+    border: 1px solid var(--signal); color: var(--signal);
+    letter-spacing: .1em;
+}
+.md-card-desc {
+    grid-column: 1 / -1;
+    font-size: 13.5px; color: var(--ink-70); line-height: 1.65;
+}
+.md-card-meta {
+    grid-column: 1;
+    display: flex; gap: 16px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-45); letter-spacing: .08em;
+}
+.md-card-status {
+    text-align: right;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: .1em;
+}
+.md-card-status.ok { color: var(--signal); }
+.md-card-status.ready { color: var(--ink-45); }
+
+.md-download-btn {
+    grid-column: 2; grid-row: 2 / 5;
+    align-self: center;
+    padding: 10px 20px;
+    background: var(--ink); color: var(--paper);
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: .16em;
+    border: 1px solid var(--ink);
+    transition: background .3s var(--ease-out), color .3s var(--ease-out);
+    min-width: 120px;
+    text-align: center;
+}
+.md-download-btn:hover:not(:disabled) { background: transparent; color: var(--ink); }
+.md-download-btn:disabled { opacity: .35; cursor: not-allowed; }
+.md-download-btn.cancel { background: var(--signal); border-color: var(--signal); }
+.md-download-btn.cancel:hover { background: transparent; color: var(--signal); }
+
+/* 进度条 */
+.md-progress {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    height: 4px; background: var(--ink-12);
+    overflow: hidden;
+    display: none;
+}
+.md-progress.on { display: block; }
+.md-progress-bar {
+    height: 100%; width: 0;
+    background: var(--signal);
+    transition: width .18s linear;
+}
+.md-progress-label {
+    grid-column: 1;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-45); letter-spacing: .08em;
+    min-height: 14px;
+}
 
 /* 清空对话：贴右收口 */
 .clear-btn {
@@ -435,7 +575,10 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
                         <button class="level-opt" type="button" role="radio" aria-checked="false" data-level="l3">Astra</button>
                     </div>
                     <button class="x-btn" id="xBtn" type="button" aria-pressed="false" title="X · 当前档位的高阶模型开关">X</button>
-                    <button class="pick-btn" id="pickBtn" type="button" disabled aria-label="模型选择（待接入）" title="模型选择（待接入）"></button>
+                    <button class="pick-btn" id="pickBtn" type="button" aria-label="模型选择" title="模型选择">
+                        <span class="pick-dot"></span>
+                        <span>MODEL</span>
+                    </button>
                     <button class="clear-btn" id="clearBtn" type="button" title="清空对话 (Ctrl+K)">清空对话</button>
                 </div>
 
@@ -466,7 +609,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
     if (!window.Luna) {
         (function () {
-            var v = '20261016c';
+            var v = '20261017a';
             var files = location.protocol === 'file:'
                 ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
                 : ['plugins/luna/luna.js?v=' + v];
@@ -1245,6 +1388,188 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
     /* body.sh-dock-bottom 由页眉组件（site-header.js）统一维护，
        本页 CSS 直接据此做安全区避让，无需自己观察 */
 
+    /* ============================================================
+       模型下载面板
+       ============================================================ */
+    var pickBtn = $('#pickBtn');
+    var mdModal = null;
+    var mdAbortCtrl = null;
+    var mdDownloading = false;
+
+    function checkEmo8Cached() {
+        if (!window.Luna || !caches) return Promise.resolve(false);
+        return (async function () {
+            try {
+                var base = Luna.PLUGIN_BASE || 'plugins/luna/';
+                var ver = Luna.ASSET_VERSION || '20261016c';
+                var raw = Luna.EMO8_SPEC ? Luna.EMO8_SPEC.raw
+                                        : '../../models/luna/markov_emo8.bin';
+                var c = await caches.open('luna-assets-' + ver);
+                var u = new URL(raw, base);
+                u.search = u.search ? u.search + '&v=' + ver : '?v=' + ver;
+                var r = await c.match(u.href);
+                return !!r;
+            } catch (e) { return false; }
+        })();
+    }
+
+    function formatSize(bytes) {
+        if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+        if (bytes >= 1024) return (bytes / 1024).toFixed(1) + 'KB';
+        return bytes + 'B';
+    }
+
+    function buildModelPanel() {
+        if (mdModal) return mdModal;
+        mdModal = document.createElement('div');
+        mdModal.className = 'md-modal';
+        mdModal.innerHTML =
+            '<div class="md-panel" role="dialog" aria-label="模型管理">' +
+                '<div class="md-head">' +
+                    '<span class="mono">MODEL / 模型管理</span>' +
+                    '<h3>模型库</h3>' +
+                    '<button class="md-close" type="button" aria-label="关闭">×</button>' +
+                '</div>' +
+                '<div class="md-body">' +
+                    '<div class="md-card" data-model="lunax">' +
+                        '<div class="md-card-title">' +
+                            'LunaX' +
+                            '<span class="md-badge">X · EMO8</span>' +
+                        '</div>' +
+                        '<div class="md-card-desc">' +
+                            '八情感链大模型 · 在 Luna 档开启 X 时生效。' +
+                            '对每次输入做情感投票，匹配八维情感链生成带情绪色彩的回复。' +
+                        '</div>' +
+                        '<div class="md-card-meta">' +
+                            '<span>15.6MB raw / 4.8MB gz</span>' +
+                        '</div>' +
+                        '<div class="md-card-status ready" data-status>未下载</div>' +
+                        '<button class="md-download-btn" type="button" data-action>下载</button>' +
+                        '<div class="md-progress"><div class="md-progress-bar"></div></div>' +
+                        '<div class="md-progress-label" data-label></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="md-foot mono" style="font-size:10px;color:var(--ink-45)">' +
+                    '全部模型下载后缓存在本地浏览器（Cache Storage），不会上传任何数据。' +
+                '</div>' +
+            '</div>';
+
+        mdModal.addEventListener('click', function (e) {
+            if (e.target === mdModal) closeModelPanel();
+        });
+        mdModal.querySelector('.md-close').addEventListener('click', closeModelPanel);
+        mdModal.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeModelPanel();
+        });
+        mdModal.querySelector('.md-card').addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-action]');
+            if (btn) handleModelAction(btn);
+        });
+
+        document.body.appendChild(mdModal);
+        return mdModal;
+    }
+
+    function openModelPanel() {
+        buildModelPanel();
+        mdModal.classList.add('open');
+        refreshModelStatus();
+    }
+
+    function closeModelPanel() {
+        if (mdDownloading) {
+            if (mdAbortCtrl) mdAbortCtrl.abort();
+            mdAbortCtrl = null;
+            mdDownloading = false;
+        }
+        if (mdModal) mdModal.classList.remove('open');
+    }
+
+    async function refreshModelStatus() {
+        if (!mdModal) return;
+        var isCached = await checkEmo8Cached();
+        updateModelCard(isCached, false);
+        pickBtn.classList.toggle('cached', isCached);
+    }
+
+    function updateModelCard(cached, downloading, pct, label) {
+        if (!mdModal) return;
+        var card = mdModal.querySelector('.md-card');
+        var status = card.querySelector('[data-status]');
+        var btn = card.querySelector('[data-action]');
+        var bar = card.querySelector('.md-progress');
+        var barFill = card.querySelector('.md-progress-bar');
+        var lbl = card.querySelector('[data-label]');
+
+        if (downloading) {
+            status.className = 'md-card-status ready';
+            status.textContent = '下载中';
+            btn.textContent = '取消';
+            btn.classList.add('cancel');
+            bar.classList.add('on');
+            barFill.style.width = (pct || 0) + '%';
+            lbl.textContent = label || '';
+        } else if (cached) {
+            status.className = 'md-card-status ok';
+            status.textContent = '已缓存 ✓';
+            btn.textContent = '重新下载';
+            btn.classList.remove('cancel');
+            bar.classList.remove('on');
+            lbl.textContent = '';
+        } else {
+            status.className = 'md-card-status ready';
+            status.textContent = '未下载';
+            btn.textContent = '下载';
+            btn.classList.remove('cancel');
+            bar.classList.remove('on');
+            lbl.textContent = '';
+        }
+    }
+
+    async function handleModelAction(btn) {
+        if (!window.Luna || !Luna.downloadEmo8) {
+            alert('Luna 引擎尚未就绪，请稍候再试。');
+            return;
+        }
+        if (mdDownloading) {
+            /* 取消 */
+            if (mdAbortCtrl) mdAbortCtrl.abort();
+            mdAbortCtrl = null;
+            mdDownloading = false;
+            updateModelCard(false, false);
+            refreshModelStatus();
+            return;
+        }
+        mdDownloading = true;
+        mdAbortCtrl = new AbortController();
+        updateModelCard(false, true, 0, '准备中…');
+
+        try {
+            await Luna.downloadEmo8({
+                signal: mdAbortCtrl.signal,
+                onProgress: function (s) {
+                    var pct = Math.round((s.progress || 0) * 100);
+                    updateModelCard(false, true, pct, s.label || '');
+                }
+            });
+            updateModelCard(true, false);
+            pickBtn.classList.add('cached');
+        } catch (e) {
+            if (e.name === 'AbortError') {
+                updateModelCard(false, false);
+            } else {
+                updateModelCard(false, false);
+                alert('下载失败：' + (e && e.message ? e.message : e));
+            }
+            refreshModelStatus();
+        } finally {
+            mdDownloading = false;
+            mdAbortCtrl = null;
+        }
+    }
+
+    pickBtn.addEventListener('click', openModelPanel);
+
     /* ---------------- 启动 ---------------- */
     bgApi = startBackground();
     setBoost(session.boost);
@@ -1258,6 +1583,10 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         document.documentElement.removeAttribute('data-qs-astra');
         document.body.classList.remove('qs-astra');
         if (abortCtrl) abortCtrl.abort();
+        /* 清理模型下载面板 */
+        if (mdDownloading && mdAbortCtrl) { mdAbortCtrl.abort(); mdAbortCtrl = null; mdDownloading = false; }
+        if (mdModal && mdModal.parentNode) mdModal.parentNode.removeChild(mdModal);
+        mdModal = null;
     };
 })();
 </script>

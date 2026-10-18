@@ -395,14 +395,19 @@
     }
   }
 
-  /* 流式下载：拿得到进度；单文件 150 秒超时 + 重试 1 次 */
-  async function fetchStream(url, onProgress, attempt) {
+  /* 流式下载：拿得到进度；单文件 150 秒超时 + 重试 1 次
+     第 4 个参数 externalSignal：外部取消信号（用户取消时立即中断） */
+  async function fetchStream(url, onProgress, attempt, externalSignal) {
     attempt = attempt || 0;
     var ctrl = null, timer = 0;
     try {
       if (typeof AbortController !== 'undefined') {
         ctrl = new AbortController();
         timer = setTimeout(function () { ctrl.abort(); }, FETCH_TIMEOUT);
+        if (externalSignal && externalSignal.aborted) { ctrl.abort(); }
+        else if (externalSignal) {
+          externalSignal.addEventListener('abort', function () { ctrl.abort(); }, { once: true });
+        }
       }
       var resp = await fetch(url, {
         cache: 'force-cache',
@@ -415,6 +420,9 @@
         var chunks = [];
         var loaded = 0;
         for (;;) {
+          if (externalSignal && externalSignal.aborted) {
+            throw Object.assign(new Error('Aborted'), { name: 'AbortError' });
+          }
           var step = await reader.read();
           if (step.done) break;
           chunks.push(step.value);
@@ -431,9 +439,12 @@
       }
       return new Uint8Array(await resp.arrayBuffer());
     } catch (e) {
+      if (externalSignal && externalSignal.aborted) {
+        var ae = new Error('Aborted'); ae.name = 'AbortError'; throw ae;
+      }
       if (attempt < FETCH_RETRIES) {
         await new Promise(function (r) { setTimeout(r, 500); });
-        return fetchStream(url, onProgress, attempt + 1);
+        return fetchStream(url, onProgress, attempt + 1, externalSignal);
       }
       throw e;
     } finally {
@@ -443,6 +454,7 @@
 
   /* 单资产：缓存 → 预压 gz → 原始文件；文件头校验防劫持/错误页 */
   async function getAsset(spec, base, progress, opt) {
+    opt = opt || {};
     var keyUrl = assetUrl(spec.raw, base);
     var cached = await cacheGet(keyUrl);
     if (magicOk(cached, spec.magic)) {
@@ -462,7 +474,7 @@
         var bytes = await fetchStream(cand.url, function (loaded) {
           progress.slots[spec.key] = { ratio: Math.min(1, loaded / expected) };
           if (opt.onProgress) opt.onProgress({ phase: 'download', progress: progress.pct() });
-        });
+        }, 0, opt.signal);
         if (cand.gz) bytes = await gunzip(bytes);
         if (!magicOk(bytes, spec.magic)) throw new Error('bad magic (文件被篡改或返回错误页)');
         await cachePut(keyUrl, bytes);
@@ -470,6 +482,7 @@
         if (opt.onProgress) opt.onProgress({ phase: 'download', progress: progress.pct() });
         return bytes;
       } catch (e) {
+        if (e.name === 'AbortError') throw e;
         lastErr = e;
         if (typeof opt.log === 'function') {
           opt.log('资产 ' + spec.key + (cand.gz ? ' (.gz)' : '') + ' 失败：' + (e && e.message));
@@ -643,15 +656,154 @@
     return await createEngine(wasmCached, dictCached, emo8Cached, opt);
   }
 
+  /**
+   * 下载 emo8 模型并缓存（供 X 模式使用）。
+   *   - 先确保 wasm + dict 已在缓存中（未缓存则自动下载）
+   *   - 再下载 emo8 模型（走预压 .gz 优先，约 4.8MB / 原始 15.6MB）
+   *   - 全部写入 Cache Storage，完成后 loadEmo8 即可直接命中
+   * opt.onProgress({phase:'ensure'|'download'|'init', progress:0..1, label})
+   *   其中 progress 为整体加权进度（wasm+dict 占 40%，emo8 占 60%）
+   *   抛出 abortError 时表示用户取消，调用方可直接忽略
+   */
+  async function downloadEmo8(opt) {
+    opt = opt || {};
+    var base = opt.baseUrl || PLUGIN_BASE;
+    var progress = progressTracker();
+    var abortSignal = opt.signal || null;
+
+    function emit(phase, progress01, label) {
+      if (opt.onProgress) opt.onProgress({
+        phase: phase, progress: progress01, label: label || ''
+      });
+    }
+
+    function checkAbort() {
+      if (abortSignal && abortSignal.aborted) {
+        var e = new Error('Aborted');
+        e.name = 'AbortError';
+        throw e;
+      }
+    }
+
+    /* 先检查 wasm + dict 是否已缓存 */
+    var wasmKey = assetUrl(ASSET_SPECS[0].raw, base);
+    var dictKey = assetUrl(ASSET_SPECS[1].raw, base);
+    var emo8Key = assetUrl(EMO8_SPEC.raw, base);
+
+    var wasmCached = await cacheGet(wasmKey);
+    var dictCached = await cacheGet(dictKey);
+    var wasmOk = magicOk(wasmCached, ASSET_SPECS[0].magic);
+    var dictOk = magicOk(dictCached, ASSET_SPECS[1].magic);
+
+    /* emo8 已缓存 → 直接返回 */
+    var emo8Cached = await cacheGet(emo8Key);
+    if (magicOk(emo8Cached, EMO8_SPEC.magic)) {
+      emit('init', 1, 'X 模型已就绪');
+      return { alreadyCached: true };
+    }
+
+    checkAbort();
+
+    /* 阶段 1：确保 wasm + dict 缓存（占总进度 40%） */
+    if (!wasmOk || !dictOk) {
+      emit('ensure', 0.02, '装载引擎核心…');
+      var ensureProgress = progressTracker();
+      var ensureParts = [];
+      var specsToGet = [];
+      if (!wasmOk) specsToGet.push({ spec: ASSET_SPECS[0], idx: 0 });
+      if (!dictOk) specsToGet.push({ spec: ASSET_SPECS[1], idx: 1 });
+
+      var baseScale = 0.4;  /* 确保阶段占 40% */
+      var innerOpt = {
+        log: opt.log,
+        signal: abortSignal,
+        onProgress: function (s) {
+          var innerPct = s.progress || 0;
+          var overall = 0.02 + innerPct * baseScale;
+          emit('ensure', overall, '装载引擎核心…');
+        }
+      };
+
+      for (var i = 0; i < specsToGet.length; i++) {
+        checkAbort();
+        var item = specsToGet[i];
+        innerOpt.onProgress = function (s) {
+          var innerPct = s.progress || 0;
+          var overall = 0.02 + innerPct * baseScale;
+          emit('ensure', overall, '装载引擎核心…');
+        };
+        await getAsset(item.spec, base, ensureProgress, innerOpt);
+      }
+      emit('ensure', 0.4, '引擎核心就绪');
+    }
+
+    checkAbort();
+
+    /* 阶段 2：下载 emo8（占总进度 60%） */
+    emit('download', 0.42, '下载 LunaX 模型…');
+    var emo8Progress = progressTracker();
+    var emo8Opt = {
+      log: opt.log,
+      signal: abortSignal,
+      onProgress: function (s) {
+        var innerPct = s.progress || 0;
+        var overall = 0.4 + innerPct * 0.6;
+        var pct = Math.round(innerPct * 100);
+        emit('download', overall, '下载 LunaX 模型… ' + pct + '%');
+      }
+    };
+
+    /* 临时把 abort signal 传给 fetchStream：改造 getAsset 调用链 */
+    /* 为了不侵入现有 getAsset 签名，这里直接复制一段带 abort 的下载 */
+    var bytes = null;
+    var candidates = [];
+    if (EMO8_SPEC.gz && hasGunzip()) {
+      candidates.push({ url: assetUrl(EMO8_SPEC.gz, base), gz: true });
+    }
+    candidates.push({ url: emo8Key, gz: false });
+
+    var lastErr = null;
+    for (var ci = 0; ci < candidates.length; ci++) {
+      checkAbort();
+      var cand = candidates[ci];
+      try {
+        var expected = cand.gz ? EMO8_SPEC.sizeGz : EMO8_SPEC.sizeRaw;
+        bytes = await fetchStream(cand.url, function (loaded) {
+          emo8Progress.slots.emo8 = { ratio: Math.min(1, loaded / expected) };
+          emo8Opt.onProgress({ progress: emo8Progress.pct() });
+        }, 0, abortSignal);
+        if (cand.gz) bytes = await gunzip(bytes);
+        if (!magicOk(bytes, EMO8_SPEC.magic)) {
+          throw new Error('bad magic（文件被篡改或返回错误页）');
+        }
+        break;
+      } catch (e) {
+        if (e.name === 'AbortError') throw e;
+        lastErr = e;
+        if (opt.log) opt.log('emo8 ' + (cand.gz ? '.gz' : '') + ' 下载失败：' + (e && e.message));
+      }
+    }
+    if (!bytes) throw lastErr || new Error('emo8 模型下载失败');
+
+    checkAbort();
+    await cachePut(emo8Key, bytes);
+    emit('init', 1, 'X 模型下载完成');
+    return { ok: true };
+  }
+
   var Luna = {
     createEngine: createEngine,
     loadDefault: loadDefault,
     loadEmo8: loadEmo8,
+    downloadEmo8: downloadEmo8,
     b64ToBytes: b64ToBytes,
     MKB2: MKB2,
     EOS_ID: EOS_ID,
     MAX_GEN: MAX_GEN,
-    EMO8_CHAINS: EMO8_CHAINS
+    EMO8_CHAINS: EMO8_CHAINS,
+    PLUGIN_BASE: PLUGIN_BASE,
+    ASSET_VERSION: ASSET_VERSION,
+    EMO8_SPEC: EMO8_SPEC
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Luna;
