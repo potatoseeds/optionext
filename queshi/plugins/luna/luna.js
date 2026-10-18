@@ -708,29 +708,27 @@
     if (!wasmOk || !dictOk) {
       emit('ensure', 0.02, '装载引擎核心…');
       var ensureProgress = progressTracker();
-      var ensureParts = [];
       var specsToGet = [];
       if (!wasmOk) specsToGet.push({ spec: ASSET_SPECS[0], idx: 0 });
       if (!dictOk) specsToGet.push({ spec: ASSET_SPECS[1], idx: 1 });
 
-      var baseScale = 0.4;  /* 确保阶段占 40% */
-      var innerOpt = {
-        log: opt.log,
-        signal: abortSignal,
-        onProgress: function (s) {
-          var innerPct = s.progress || 0;
-          var overall = 0.02 + innerPct * baseScale;
-          emit('ensure', overall, '装载引擎核心…');
-        }
-      };
+      var totalBase = specsToGet.length;
+      var perBase = 0.4 / totalBase;  /* 每个 asset 占 0.4/N */
 
       for (var i = 0; i < specsToGet.length; i++) {
         checkAbort();
         var item = specsToGet[i];
-        innerOpt.onProgress = function (s) {
-          var innerPct = s.progress || 0;
-          var overall = 0.02 + innerPct * baseScale;
-          emit('ensure', overall, '装载引擎核心…');
+        var baseOffset = 0.02 + i * perBase;
+        var innerOpt = {
+          log: opt.log,
+          signal: abortSignal,
+          onProgress: (function (offset, scale) {
+            return function (s) {
+              var innerPct = s.progress || 0;
+              var overall = offset + innerPct * scale;
+              emit('ensure', overall, '装载引擎核心…');
+            };
+          })(baseOffset, perBase)
         };
         await getAsset(item.spec, base, ensureProgress, innerOpt);
       }

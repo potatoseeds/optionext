@@ -326,7 +326,7 @@ body.sh-dock-bottom .app {
    ============================================================ */
 .md-modal {
     position: fixed; inset: 0;
-    z-index: 9999;
+    z-index: 10000;
     display: flex; align-items: center; justify-content: center;
     background: rgba(var(--ink-rgb), .42);
     opacity: 0;
@@ -609,7 +609,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
     if (!window.Luna) {
         (function () {
-            var v = '20261017b';
+            var v = '20261017c';
             var files = location.protocol === 'file:'
                 ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
                 : ['plugins/luna/luna.js?v=' + v];
