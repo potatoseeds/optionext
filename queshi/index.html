@@ -581,7 +581,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
        luna.js 内部会自动处理 http(s) fetch 与 file:// 内联兜底。 */
     if (!window.Luna) {
         (function () {
-            var v = '20261018b';
+            var v = '20261018c';
             var files = location.protocol === 'file:'
                 ? ['plugins/luna/luna-assets.js?v=' + v, 'plugins/luna/luna.js?v=' + v]
                 : ['plugins/luna/luna.js?v=' + v];
@@ -695,6 +695,12 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
 
     /* 极简 Markdown：fence 代码块、行内 code/粗体/斜体、标题、列表、引用 */
     function markdown(src) {
+        /* 剥离模型自吐的内部标记：[X·emo8·xxx链] */
+        src = src.replace(/\[X\s*[·.．]\s*emo8\s*[·.．]\s*[^\]]+?链\]/g, '')
+                 .replace(/〔X\s*[·.．]\s*emo8\s*[·.．]\s*[^〕]+?链〕/g, '')
+                 .replace(/^\s*\n/gm, '\n')
+                 .replace(/^\n+/, '')
+                 .replace(/\n+$/, '');
         var fences = [];
         src = src.replace(/```[^\n]*\n?([\s\S]*?)```/g, function (m, code) {
             fences.push('<pre><code>' + esc(code.replace(/\n+$/, '')) + '</code></pre>');
