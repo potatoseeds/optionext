@@ -1000,7 +1000,7 @@ body.qs-astra .level-opt[aria-checked="true"] { color: #05070f; }
         if (emoLexiconPromise) return emoLexiconPromise;
         emoLexiconPromise = (async function () {
             var url = new URL('models/luna/dutir_emotion_7class.csv', location.href);
-            var resp = await fetch(url.href + '?v=20261016a');
+            var resp = await fetch(url.href + '?v=20261018c');
             if (!resp.ok) throw new Error('情感词典加载失败: HTTP ' + resp.status);
             var text = await resp.text();
             var lines = text.split(/\r?\n/);
